@@ -1,0 +1,35 @@
+# Node.js
+node_modules/
+npm-debug.log
+yarn-debug.log
+yarn-error.log
+
+# 环境变量
+.env
+.env.*
+
+# 日志
+logs/
+*.log
+
+# 操作系统文件
+.DS_Store
+Thumbs.db
+
+# 生产/构建产物
+/dist/
+/build/
+
+# VSCode/IDE 配置
+.vscode/
+.idea/
+
+# 测试覆盖率
+coverage/
+
+# 其他
+*.swp
+*.swo
+
+# 忽略本地依赖包锁（如不希望锁定）
+# package-lock.json 

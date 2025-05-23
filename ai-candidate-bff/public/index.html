@@ -1,0 +1,787 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI候选人信息助手</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        :root {
+            --primary-color: #4361ee;
+            --secondary-color: #3f37c9;
+            --accent-color: #4895ef;
+            --light-bg: #f8f9fa;
+            --dark-text: #212529;
+            --light-text: #f8f9fa;
+            --user-message-bg: #4361ee;
+            --ai-message-bg: #f1f3f5;
+            --border-radius: 12px;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: var(--dark-text);
+            background-color: var(--light-bg);
+            max-width: 100%;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+
+        .header {
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            color: white;
+            padding: 1.5rem;
+            text-align: center;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .header h1 {
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 1rem;
+        }
+
+        .main-container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 1.5rem;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+        }
+
+        .chat-container {
+            border: 1px solid #e9ecef;
+            border-radius: var(--border-radius);
+            padding: 1.5rem;
+            height: 65vh;
+            overflow-y: auto;
+            margin-bottom: 1rem;
+            background-color: white;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .message-wrapper {
+            display: flex;
+            margin-bottom: 1rem;
+            position: relative;
+            align-items: flex-start;
+        }
+
+        .user-wrapper {
+            justify-content: flex-end;
+        }
+
+        .message {
+            padding: 0.8rem 1.2rem;
+            border-radius: var(--border-radius);
+            max-width: 80%;
+            word-wrap: break-word;
+            position: relative;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+        }
+
+        .message p {
+            margin: 0;
+        }
+
+        .user-message {
+            background-color: var(--user-message-bg);
+            color: var(--light-text);
+            border-top-right-radius: 4px;
+        }
+
+        .ai-message {
+            background-color: var(--ai-message-bg);
+            color: var(--dark-text);
+            border-top-left-radius: 4px;
+        }
+
+        .avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            margin: 0 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            color: white;
+        }
+
+        .ai-avatar {
+            background-color: var(--accent-color);
+        }
+
+        .user-avatar {
+            background-color: var(--secondary-color);
+        }
+
+        .input-container {
+            display: flex;
+            margin-top: auto;
+            padding: 0.5rem;
+            border: 1px solid #e9ecef;
+            border-radius: var(--border-radius);
+            background-color: white;
+            box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.03);
+        }
+
+        #message-input {
+            flex-grow: 1;
+            padding: 0.8rem 1rem;
+            border: none;
+            border-radius: var(--border-radius);
+            margin-right: 0.5rem;
+            font-size: 1rem;
+            outline: none;
+            background-color: var(--light-bg);
+        }
+
+        button {
+            padding: 0.8rem 1.5rem;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            font-weight: 500;
+            transition: background-color 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        button:hover {
+            background-color: var(--secondary-color);
+        }
+
+        button i {
+            margin-right: 0.5rem;
+        }
+
+        .loading-dots {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0.5rem 1rem;
+        }
+
+        .dot {
+            width: 8px;
+            height: 8px;
+            background-color: #adb5bd;
+            border-radius: 50%;
+            margin: 0 3px;
+            display: inline-block;
+            animation: pulse 1.5s infinite ease-in-out;
+        }
+
+        .dot:nth-child(2) {
+            animation-delay: 0.3s;
+        }
+
+        .dot:nth-child(3) {
+            animation-delay: 0.6s;
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                transform: scale(0.8);
+                opacity: 0.6;
+            }
+            50% {
+                transform: scale(1.2);
+                opacity: 1;
+            }
+        }
+
+        .link {
+            color: var(--primary-color);
+            text-decoration: underline;
+            cursor: pointer;
+        }
+
+        .link i {
+            margin-right: 0.3rem;
+        }
+
+        .time-stamp {
+            font-size: 0.7rem;
+            opacity: 0.7;
+            margin-top: 0.3rem;
+            text-align: right;
+        }
+
+        .footer {
+            text-align: center;
+            padding: 1rem;
+            margin-top: auto;
+            font-size: 0.8rem;
+            color: #6c757d;
+            border-top: 1px solid #e9ecef;
+        }
+
+        /* 快速问题按钮 */
+        .quick-questions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.8rem;
+            margin-bottom: 1.2rem;
+        }
+
+        .quick-question-btn {
+            background-color: #e7f0ff;
+            color: var(--primary-color);
+            border: 1px solid var(--accent-color);
+            border-radius: 20px;
+            padding: 0.6rem 1.2rem;
+            font-size: 0.9rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.25s ease;
+            white-space: nowrap;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+        }
+
+        .quick-question-btn:hover {
+            background-color: var(--accent-color);
+            color: white;
+            border-color: var(--accent-color);
+            transform: translateY(-1px);
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        .quick-question-btn:active {
+            transform: translateY(0px);
+            background-color: var(--secondary-color);
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+        }
+
+        /* 滚动到底部按钮 */
+        .scroll-bottom {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background-color: var(--primary-color);
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+            opacity: 0;
+            transition: opacity 0.3s;
+            z-index: 10;
+        }
+
+        .scroll-bottom.visible {
+            opacity: 1;
+        }
+
+        /* 候选人卡片 */
+        .candidate-card {
+            background: linear-gradient(145deg, #ffffff, #f8f9fa);
+            border-radius: var(--border-radius);
+            box-shadow: 0 3px 15px rgba(0, 0, 0, 0.08);
+            padding: 1.2rem;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            border-left: 4px solid var(--primary-color);
+            transition: all 0.3s ease;
+        }
+
+        .candidate-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.12);
+        }
+
+        .candidate-avatar {
+            width: 70px;
+            height: 70px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.8rem;
+            margin-right: 1.2rem;
+            color: white;
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .candidate-info {
+            flex: 1;
+            padding: 0.2rem 0;
+        }
+
+        .candidate-name {
+            font-weight: 600;
+            font-size: 1.4rem;
+            margin-bottom: 0.4rem;
+            color: #212529;
+            display: flex;
+            align-items: center;
+        }
+
+        .candidate-name i {
+            font-size: 0.9rem;
+            margin-left: 0.5rem;
+            color: var(--accent-color);
+        }
+
+        .candidate-position {
+            color: #495057;
+            font-size: 0.95rem;
+            margin-bottom: 0.7rem;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+        }
+
+        .candidate-position i {
+            margin-right: 0.5rem;
+            color: var(--accent-color);
+            font-size: 0.9rem;
+        }
+
+        .candidate-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin-top: 0.2rem;
+        }
+
+        .candidate-tag {
+            padding: 0.4rem 0.8rem;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 500;
+            color: white;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+
+        .candidate-tag i {
+            font-size: 0.9rem;
+        }
+
+        .candidate-tag:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 3px 6px rgba(0, 0, 0, 0.15);
+            cursor: default;
+        }
+
+        .candidate-tag:nth-child(1) {
+            background: linear-gradient(135deg, #4361ee, #3a0ca3);
+        }
+
+        .candidate-tag:nth-child(2) {
+            background: linear-gradient(135deg, #4895ef, #3f37c9);
+        }
+
+        .candidate-tag:nth-child(3) {
+            background: linear-gradient(135deg, #4cc9f0, #4895ef);
+        }
+
+        .candidate-tag:nth-child(4) {
+            background: linear-gradient(135deg, #560bad, #480ca8);
+        }
+
+        .candidate-tag:nth-child(5) {
+            background: linear-gradient(135deg, #7209b7, #560bad);
+        }
+
+        .candidate-tag:nth-child(n+6) {
+            background: linear-gradient(135deg, #b5179e, #7209b7);
+        }
+
+        /* 响应式设计 */
+        @media (max-width: 768px) {
+            .header {
+                padding: 1rem;
+            }
+
+            .main-container {
+                padding: 1rem;
+            }
+
+            .message {
+                max-width: 85%;
+            }
+
+            .chat-container {
+                height: 60vh;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .avatar {
+                width: 30px;
+                height: 30px;
+                font-size: 1rem;
+                margin: 0 5px;
+            }
+
+            .message {
+                max-width: 90%;
+                padding: 0.7rem 1rem;
+            }
+
+            button {
+                padding: 0.8rem 1rem;
+            }
+
+            button span {
+                display: none;
+            }
+
+            button i {
+                margin-right: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>AI候选人信息助手</h1>
+        <p>与AI助手对话，获取候选人的详细信息</p>
+    </div>
+    
+    <div class="main-container">
+        <div class="candidate-card">
+            <div class="candidate-avatar">
+                <i class="fas fa-user-tie"></i>
+            </div>
+            <div class="candidate-info">
+                <div class="candidate-name">陈嘉旭 <i class="fas fa-check-circle"></i></div>
+                <div class="candidate-position"><i class="fas fa-briefcase"></i>AI应用开发/Golang后端开发</div>
+                <div class="candidate-tags">
+                    <div class="candidate-tag"><i class="fab fa-golang"></i> Golang</div>
+                    <div class="candidate-tag"><i class="fab fa-java"></i> Java</div>
+                    <div class="candidate-tag"><i class="fab fa-python"></i> Python</div>
+                    <div class="candidate-tag"><i class="fas fa-database"></i> MySQL</div>
+                    <div class="candidate-tag"><i class="fas fa-server"></i> Redis</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="chat-container" id="chat-container">
+            <div class="message-wrapper">
+                <div class="avatar ai-avatar">
+                    <i class="fas fa-robot"></i>
+                </div>
+                <div class="message ai-message">
+                    <p>您好！我是AI候选人信息助手。您可以向我询问关于候选人的任何问题，例如教育背景、工作经历、技能特长等。</p>
+                    <div class="time-stamp">
+                        <span id="current-time"></span>
+                    </div>
+                </div>
+            </div>
+            <div class="scroll-bottom" id="scroll-bottom">
+                <i class="fas fa-arrow-down"></i>
+            </div>
+        </div>
+        
+        <div class="quick-questions" id="quick-questions">
+            <button class="quick-question-btn">介绍候选人背景</button>
+            <button class="quick-question-btn">技术能力有哪些</button>
+            <button class="quick-question-btn">工作经历</button>
+            <button class="quick-question-btn">项目经验</button>
+            <button class="quick-question-btn">教育背景</button>
+        </div>
+        
+        <div class="input-container">
+            <input type="text" id="message-input" placeholder="请输入您的问题..." autofocus>
+            <button id="send-button">
+                <i class="fas fa-paper-plane"></i>
+                <span>发送</span>
+            </button>
+        </div>
+    </div>
+
+    <div class="footer">
+        © 2024 AI候选人信息助手 | Powered by LangChain.js
+    </div>
+
+    <script>
+        const chatContainer = document.getElementById('chat-container');
+        const messageInput = document.getElementById('message-input');
+        const sendButton = document.getElementById('send-button');
+
+        // 设置当前时间
+        function setCurrentTime() {
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+            document.getElementById('current-time').textContent = timeStr;
+        }
+        setCurrentTime();
+
+        // 添加消息到聊天窗口
+        function addMessage(text, isUser) {
+            const messageWrapper = document.createElement('div');
+            messageWrapper.classList.add('message-wrapper');
+            if (isUser) messageWrapper.classList.add('user-wrapper');
+            
+            // 创建头像
+            const avatar = document.createElement('div');
+            avatar.classList.add('avatar');
+            if (isUser) {
+                avatar.classList.add('user-avatar');
+                avatar.innerHTML = '<i class="fas fa-user"></i>';
+            } else {
+                avatar.classList.add('ai-avatar');
+                avatar.innerHTML = '<i class="fas fa-robot"></i>';
+            }
+            
+            // 创建消息内容
+            const messageDiv = document.createElement('div');
+            messageDiv.classList.add('message');
+            messageDiv.classList.add(isUser ? 'user-message' : 'ai-message');
+            
+            if (isUser) {
+                messageDiv.innerHTML = `<p>${formatText(text)}</p>`;
+            } else {
+                // 使用Marked.js解析AI的Markdown消息
+                // 注意：Marked.js的输出可能包含HTML，因此直接设置为innerHTML
+                // 需要确保AI的输出是可信的，或者进行适当的清理
+                messageDiv.innerHTML = marked.parse(text);
+            }
+            
+            // 添加时间戳
+            const timeStamp = document.createElement('div');
+            timeStamp.classList.add('time-stamp');
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+            timeStamp.textContent = timeStr;
+            messageDiv.appendChild(timeStamp);
+            
+            // 根据用户/AI调整顺序
+            if (isUser) {
+                messageWrapper.appendChild(messageDiv);
+                messageWrapper.appendChild(avatar);
+            } else {
+                messageWrapper.appendChild(avatar);
+                messageWrapper.appendChild(messageDiv);
+            }
+            
+            chatContainer.appendChild(messageWrapper);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+        // 格式化文本，处理链接
+        function formatText(text) {
+            // 这个函数现在只处理用户消息的简单格式化
+            // AI消息的Markdown格式化由Marked.js处理
+            // 但保留URL自动链接和换行符处理，以防AI未返回标准Markdown链接
+            const urlRegex = /((?:https?|ftp):\/\/[^\s/$.?#].[^\s]*)/gi;
+            text = text.replace(urlRegex, (url) => {
+                let icon = '';
+                if (url.includes('linkedin.com')) {
+                    icon = '<i class="fab fa-linkedin"></i>';
+                } else if (url.includes('github.com')) {
+                    icon = '<i class="fab fa-github"></i>';
+                } else {
+                    icon = '<i class="fas fa-link"></i>';
+                }
+                return `<a href="${url}" target="_blank" class="link">${icon}${url}</a>`;
+            });
+            text = text.replace(/\n/g, '<br>'); // 确保显式换行符被处理
+            return text;
+        }
+
+        // 添加加载中消息
+        function addLoadingMessage() {
+            const messageWrapper = document.createElement('div');
+            messageWrapper.classList.add('message-wrapper');
+            messageWrapper.id = 'loading-message-wrapper';
+            
+            const avatar = document.createElement('div');
+            avatar.classList.add('avatar', 'ai-avatar');
+            avatar.innerHTML = '<i class="fas fa-robot"></i>';
+            
+            const loadingDiv = document.createElement('div');
+            loadingDiv.classList.add('message', 'ai-message');
+            
+            const loadingDots = document.createElement('div');
+            loadingDots.classList.add('loading-dots');
+            loadingDots.innerHTML = '<div class="dot"></div><div class="dot"></div><div class="dot"></div>';
+            
+            loadingDiv.appendChild(loadingDots);
+            messageWrapper.appendChild(avatar);
+            messageWrapper.appendChild(loadingDiv);
+            
+            chatContainer.appendChild(messageWrapper);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+            return messageWrapper;
+        }
+
+        // 添加一个函数来创建重试按钮
+        function createRetryButton(failedMessage) {
+            const retryButton = document.createElement('button');
+            retryButton.classList.add('quick-question-btn'); // 重用一些样式
+            retryButton.style.marginTop = '0.5rem';
+            retryButton.innerHTML = '<i class="fas fa-redo"></i> 点击重试';
+            retryButton.onclick = () => {
+                // 移除错误消息和重试按钮
+                const errorMessages = chatContainer.querySelectorAll('.ai-message p');
+                errorMessages.forEach(msgEl => {
+                    if (msgEl.textContent.startsWith('抱歉，发生了错误')) {
+                        const parentWrapper = msgEl.closest('.message-wrapper');
+                        if (parentWrapper) parentWrapper.remove();
+                    }
+                });
+                // 重新发送之前的消息
+                // 注意: 这里简化处理，直接调用sendMessage，它会使用messageInput的当前值
+                // 更完善的实现应该保存失败时的消息内容并重新发送那个特定消息
+                // 为了演示，我们假设用户在输入框中的内容就是他们想重试的
+                if (failedMessage) { // 如果我们保存了失败的消息
+                     addMessage(failedMessage, true); // 重新显示用户消息
+                     // 这里应该直接调用后端，而不是依赖输入框
+                     // fetch('/chat', { ... body: JSON.stringify({ message: failedMessage }) ... })
+                     // 但为了简化，我们还是用 sendMessage()
+                     sendMessageToServer(failedMessage); // 调用新的只发送不显示用户消息的函数
+                } else if (messageInput.value.trim()){
+                    sendMessage(); // 如果输入框有内容，就用输入框的内容
+                } else {
+                    // 如果都没有，可能需要提示用户输入
+                     addMessage('请输入您想重试的问题。', false);
+                }
+            };
+            return retryButton;
+        }
+
+        // 修改sendMessage以保存消息并分离出实际的服务器请求
+        let lastUserMessage = '';
+        async function sendMessage() {
+            const message = messageInput.value.trim();
+            if (!message) return;
+            lastUserMessage = message; // 保存用户消息
+
+            // 显示用户消息
+            addMessage(message, true);
+            messageInput.value = '';
+            messageInput.focus();
+            
+            await sendMessageToServer(lastUserMessage);
+        }
+
+        async function sendMessageToServer(messageText) {
+             // 显示加载中消息
+            const loadingMessageWrapper = addLoadingMessage();
+            
+            try {
+                // 发送请求到服务器
+                const response = await fetch('/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ message: messageText })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`网络响应不正常 (${response.status})`);
+                }
+                
+                const data = await response.json();
+                
+                // 移除加载中消息
+                loadingMessageWrapper.remove();
+                
+                // 显示AI回复
+                addMessage(data.text, false);
+            } catch (error) {
+                console.error('Error:', error);
+                
+                // 移除加载中消息
+                if(loadingMessageWrapper && loadingMessageWrapper.parentNode) {
+                    loadingMessageWrapper.remove();
+                }
+                
+                // 显示错误消息
+                let aiErrorMessage = '抱歉，发生了错误: ' + error.message;
+                addMessage(aiErrorMessage, false);
+
+                // 在错误消息下方添加重试按钮
+                const lastMessageWrapper = chatContainer.lastChild;
+                if (lastMessageWrapper) {
+                    const messageDiv = lastMessageWrapper.querySelector('.ai-message');
+                    if (messageDiv) {
+                         // 将失败的消息传递给重试按钮
+                        messageDiv.appendChild(createRetryButton(messageText));
+                    }
+                }
+            }
+        }
+
+        // 绑定事件
+        sendButton.addEventListener('click', sendMessage);
+        messageInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+
+        // 快速问题按钮
+        const quickQuestions = document.getElementById('quick-questions');
+        quickQuestions.addEventListener('click', (e) => {
+            if (e.target.classList.contains('quick-question-btn')) {
+                messageInput.value = e.target.textContent;
+                sendMessage();
+            }
+        });
+
+        // 禁用页面缩放
+        document.addEventListener('wheel', function(e) {
+            if(e.ctrlKey) {
+                e.preventDefault();
+            }
+        }, { passive: false });
+
+        // 滚动到底部按钮
+        const scrollBottomBtn = document.getElementById('scroll-bottom');
+        scrollBottomBtn.addEventListener('click', () => {
+            chatContainer.scrollTo({
+                top: chatContainer.scrollHeight,
+                behavior: 'smooth'
+            });
+        });
+
+        // 监听滚动事件，显示/隐藏滚动按钮
+        chatContainer.addEventListener('scroll', () => {
+            const scrollDiff = chatContainer.scrollHeight - chatContainer.clientHeight - chatContainer.scrollTop;
+            if (scrollDiff > 100) {
+                scrollBottomBtn.classList.add('visible');
+            } else {
+                scrollBottomBtn.classList.remove('visible');
+            }
+        });
+    </script>
+</body>
+</html> 
