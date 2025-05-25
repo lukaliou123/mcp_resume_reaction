@@ -12,7 +12,7 @@ RUN addgroup -g 1001 -S nodejs && \
 COPY package*.json ./
 
 # 安装依赖（仅生产环境）
-RUN npm ci --only=production && npm cache clean --force
+RUN npm ci --omit=dev && npm cache clean --force
 
 # 复制应用代码
 COPY --chown=nextjs:nodejs . .
