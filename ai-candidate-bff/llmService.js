@@ -1,7 +1,8 @@
-const { MultiServerMCPClient } = require("@langchain/mcp-adapters");
 const { ChatOpenAI } = require("@langchain/openai");
 const { createReactAgent } = require("@langchain/langgraph/prebuilt");
 const { CallbackHandler } = require("langfuse-langchain");
+const { DynamicTool } = require("@langchain/core/tools");
+const mcpService = require('./src/services/mcpService');
 
 const SYSTEM_PROMPT = `你是一个专业的招聘助手，负责为用户介绍和解答关于候选人"陈嘉旭"的各类信息。你可以调用多种工具获取候选人的简历、教育背景、工作经历、项目经验、技能特长、社交媒体链接等结构化数据。
 你的目标是：
@@ -44,18 +45,9 @@ class LLMService {
       baseUrl: process.env.LANGFUSE_BASE_URL || 'Not set'
     });
 
-    this.client = new MultiServerMCPClient({
-      mcpServers: {
-        candidate: {
-          transport: "stdio",
-          command: "npx",
-          args: ["ts-node", "/home/blueroad/idea_demos/resume_mcp/node-candidate-mcp-server/examples/stdio.ts"],
-        },
-      },
-    });
-    
-    this.tools = await this.client.getTools();
-    console.log("Loaded MCP tools:", this.tools);
+    // 创建集成的MCP工具
+    this.tools = this._createIntegratedMCPTools();
+    console.log("Loaded integrated MCP tools:", this.tools.map(t => t.name));
     
     this.model = new ChatOpenAI({
       openAIApiKey: process.env.OPENAI_API_KEY,
@@ -71,6 +63,52 @@ class LLMService {
     });
 
     console.log("✅ LLM Service initialized with LangFuse monitoring");
+  }
+
+  // 创建集成的MCP工具
+  _createIntegratedMCPTools() {
+    return [
+      new DynamicTool({
+        name: "mcp__candidate__get_resume_text",
+        description: "Get the candidate's resume text with detailed information",
+        func: async () => {
+          const result = await mcpService.getResumeText();
+          return JSON.stringify(result.text);
+        },
+      }),
+      new DynamicTool({
+        name: "mcp__candidate__get_resume_url",
+        description: "Get the candidate's resume URL",
+        func: async () => {
+          const result = await mcpService.getResumeUrl();
+          return result.url;
+        },
+      }),
+      new DynamicTool({
+        name: "mcp__candidate__get_linkedin_url",
+        description: "Get the candidate's LinkedIn profile URL",
+        func: async () => {
+          const result = await mcpService.getLinkedinUrl();
+          return result.url;
+        },
+      }),
+      new DynamicTool({
+        name: "mcp__candidate__get_github_url",
+        description: "Get the candidate's GitHub profile URL",
+        func: async () => {
+          const result = await mcpService.getGithubUrl();
+          return result.url;
+        },
+      }),
+      new DynamicTool({
+        name: "mcp__candidate__get_website_url",
+        description: "Get the candidate's personal website URL",
+        func: async () => {
+          const result = await mcpService.getWebsiteUrl();
+          return result.url;
+        },
+      }),
+    ];
   }
 
   async processQuery(userMessage) {
@@ -98,6 +136,7 @@ class LLMService {
           user_query: userMessage,
           timestamp: new Date().toISOString(),
           service: "ai-candidate-bff",
+          mode: "integrated-mcp",
         },
       });
 
