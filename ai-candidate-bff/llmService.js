@@ -49,10 +49,22 @@ class LLMService {
     this.tools = this._createIntegratedMCPTools();
     console.log("Loaded integrated MCP tools:", this.tools.map(t => t.name));
     
+    // 根据区域配置选择AI提供商
+    const aiConfig = this._getAIConfig();
+    console.log("🤖 AI提供商配置:", {
+      area: aiConfig.area,
+      provider: aiConfig.provider,
+      model: aiConfig.model,
+      baseUrl: aiConfig.baseUrl
+    });
+    
     this.model = new ChatOpenAI({
-      openAIApiKey: process.env.OPENAI_API_KEY,
-      modelName: process.env.OPENAI_MODEL || 'gpt-4o-mini',
+      openAIApiKey: aiConfig.apiKey,
+      modelName: aiConfig.model,
       temperature: 0.2,
+      configuration: {
+        baseURL: aiConfig.baseUrl,
+      },
       // 添加 LangFuse 回调处理器
       callbacks: [this.langfuseHandler],
     });
@@ -62,7 +74,32 @@ class LLMService {
       tools: this.tools,
     });
 
-    console.log("✅ LLM Service initialized with LangFuse monitoring");
+    console.log(`✅ LLM Service initialized with ${aiConfig.provider} and LangFuse monitoring`);
+  }
+
+  // 根据区域配置获取AI提供商配置
+  _getAIConfig() {
+    const area = process.env.AI_PROVIDER_AREA || 'global';
+    
+    if (area === 'cn') {
+      // 使用阿里云通义千问
+      return {
+        area: 'cn',
+        provider: 'Alibaba Qwen',
+        apiKey: process.env.DASHSCOPE_API_KEY,
+        model: process.env.DASHSCOPE_MODEL || 'qwen-turbo-latest',
+        baseUrl: process.env.DASHSCOPE_BASE_URL || 'https://dashscope.aliyuncs.com/compatible-mode/v1'
+      };
+    } else {
+      // 默认使用OpenAI (global)
+      return {
+        area: 'global',
+        provider: 'OpenAI',
+        apiKey: process.env.OPENAI_API_KEY,
+        model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
+        baseUrl: process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1'
+      };
+    }
   }
 
   // 创建集成的MCP工具
