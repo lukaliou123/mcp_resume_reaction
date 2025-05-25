@@ -1,17 +1,11 @@
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { ServerCapabilities } from "@modelcontextprotocol/sdk/types.js";
-import { ServerConfig, CandidateConfig } from "./config";
-import { candidateResources } from "./resources";
-import { candidateTools } from "./tools";
-import { candidatePrompts } from "./prompts";
-import { interviewTools } from "./tools/interviewTools";
+const { McpServer } = require("../../node_modules/@modelcontextprotocol/sdk/dist/cjs/server/mcp.js");
+const { ServerConfig, CandidateConfig } = require("./config");
+const { candidateResources } = require("./resources");
+const { candidateTools, interviewTools } = require("./tools");
+const { candidatePrompts } = require("./prompts");
 
 // Return a new instance of an MCP server
-function createServer(
-  serverConfig: ServerConfig, 
-  candidateConfig: CandidateConfig
-): McpServer {
-
+function createServer(serverConfig, candidateConfig) {
   const server = new McpServer({
     name: serverConfig.name,
     capabilities: getServerCapabilities(),
@@ -21,7 +15,7 @@ function createServer(
   return bindToServer(server, serverConfig, candidateConfig);
 }
 
-function bindToServer(server: McpServer, serverConfig: ServerConfig, candidateConfig: CandidateConfig) {
+function bindToServer(server, serverConfig, candidateConfig) {
   // Bind all available candidate tools + resources based on candidate configuration
   const resourceInstances = candidateResources(candidateConfig);
   const toolInstances = candidateTools(candidateConfig, serverConfig);
@@ -87,4 +81,4 @@ function getServerCapabilities() {
   };
 }
 
-export { createServer, bindToServer, getServerCapabilities };
+module.exports = { createServer, bindToServer, getServerCapabilities }; 

@@ -5,8 +5,11 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
+    "start:prod": "NODE_ENV=production node index.js",
     "dev": "nodemon index.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "echo \"No build step required for Node.js app\"",
+    "health-check": "curl -f http://localhost:3000/health || exit 1"
   },
   "keywords": [
     "ai",
@@ -18,13 +21,17 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@jhgaylor/candidate-mcp-server": "file:../node-candidate-mcp-server",
     "@langchain/openai": "^0.5.11",
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "@types/nodemailer": "^6.4.17",
     "body-parser": "^2.2.0",
     "cors": "^2.8.5",
     "dotenv": "^16.5.0",
     "express": "^5.1.0",
     "langchain": "^0.3.27",
+    "langfuse-langchain": "^3.37.2",
+    "mailgun-nodemailer-transport": "^3.0.2",
+    "nodemailer": "^6.10.1",
     "zod": "^3.25.20"
   },
   "devDependencies": {

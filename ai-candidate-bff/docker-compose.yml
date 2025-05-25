@@ -1,0 +1,37 @@
+version: '3.8'
+
+services:
+  ai-candidate-bff:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      # 在实际使用时，请设置真实的API密钥
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-your_openai_api_key_here}
+      - OPENAI_MODEL=${OPENAI_MODEL:-gpt-4.1-nano}
+      - LANGFUSE_PUBLIC_KEY=${LANGFUSE_PUBLIC_KEY:-your_langfuse_public_key_here}
+      - LANGFUSE_SECRET_KEY=${LANGFUSE_SECRET_KEY:-your_langfuse_secret_key_here}
+      - LANGFUSE_BASE_URL=${LANGFUSE_BASE_URL:-https://cloud.langfuse.com}
+    volumes:
+      # 挂载配置文件，便于更新候选人信息
+      - ./config:/app/config:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "npm", "run", "health-check"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # 可选：添加nginx反向代理
+  # nginx:
+  #   image: nginx:alpine
+  #   ports:
+  #     - "80:80"
+  #   volumes:
+  #     - ./nginx.conf:/etc/nginx/nginx.conf:ro
+  #   depends_on:
+  #     - ai-candidate-bff
+  #   restart: unless-stopped 

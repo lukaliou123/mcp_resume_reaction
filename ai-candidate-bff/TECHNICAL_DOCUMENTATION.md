@@ -1,154 +1,221 @@
-# 技术文档：AI 助手的候选人信息交互页面
+# AI候选人BFF技术文档
 
-## 1. 项目概述
+## 项目概述
 
-本项目旨在构建一个 PC Web 页面，用户可以通过该页面与 AI 助手进行自然语言交互，以查询和了解特定候选人的相关信息。AI 助手将通过调用一个 Model Context Protocol (MCP) 服务器来获取候选人的结构化数据。
+AI候选人BFF（Backend For Frontend）是一个基于Express.js的智能候选人信息服务，集成了MCP (Model Context Protocol) 服务器和LangFuse监控，为AI驱动的招聘助手提供后端支持。
 
-## 2. 核心功能需求
+## 架构设计
 
-*   用户可以在 PC 页面的聊天界面通过自然语言提问关于候选人的问题。
-*   AI 助手能够理解用户的问题，并判断需要从 MCP Server 获取哪些信息。
-*   AI 助手调用 MCP Server 提供的工具或资源来获取具体信息。
-*   AI 助手整合从 MCP Server 获取的信息，并以自然语言的形式在聊天界面回复用户。
-*   初期支持查询的候选人信息范围包括但不限于：姓名、简历文本、简历链接、GitHub 个人资料链接、LinkedIn 个人资料链接、个人网站链接等。
+### 核心组件
 
-## 3. 系统架构图
+*   **Express.js 服务器:** 主要的HTTP服务器，处理API请求和静态文件服务。
+*   **集成MCP服务器:** 直接集成的MCP服务器，提供候选人的结构化信息（无外部依赖）。
+*   **LLM服务:** 基于LangChain.js和OpenAI API的智能对话服务。
+*   **LangFuse监控:** API调用追踪和性能监控。
+
+### 技术栈
+
+*   **后端框架:** Express.js
+*   **AI/LLM:** OpenAI GPT, LangChain.js
+*   **MCP协议:** 集成的Model Context Protocol服务器
+*   **监控:** LangFuse
+*   **部署:** 支持Vercel、Railway、Docker等多种方式
+
+## 项目结构
 
 ```
-+-----------------+      +---------------------+      +----------------------+      +-----------------+      +-----------------+
-|   PC Web UI     |----->|   Application BFF   |----->|   LLM (OpenAI API)   |<---->|  LangChain.js   |----->|   MCP Server    |
-| (HTML/JS/Vue/  |      | (Node.js + Express) |      +----------------------+      | (Agent, Tools)  |      | (@jhgaylor/...) |
-|  React, etc.)   |      +---------------------+                                    +-----------------+      +-----------------+
-+-----------------+
-       ^                                                                                     |
-       |-------------------------------------------------------------------------------------|
-                                          (AI Response)
+ai-candidate-bff/
+├── index.js                 # 主应用入口
+├── llmService.js            # LLM服务（集成MCP工具）
+├── src/
+│   ├── mcp-server/          # 集成的MCP服务器源码
+│   │   ├── server.js        # MCP服务器核心逻辑
+│   │   ├── config.js        # 服务器配置
+│   │   ├── index.js         # MCP服务器入口
+│   │   ├── resources/       # 候选人资源
+│   │   ├── tools/           # 候选人工具
+│   │   └── prompts/         # 提示模板
+│   └── services/
+│       └── mcpService.js    # MCP服务封装
+├── config/                  # 配置文件
+│   ├── candidate.js         # 候选人基本信息
+│   ├── resume-content.js    # 详细简历内容
+│   └── server.js            # 服务器配置
+├── public/                  # 静态文件
+└── scripts/                 # 部署脚本
 ```
 
-**组件说明:**
+## 核心功能
 
-*   **PC Web UI:** 用户交互界面，负责接收用户输入和展示 AI 回复。
-*   **Application BFF (Backend For Frontend):** 后端应用，处理前端请求，协调与 LLM 和 MCP Server 的交互。
-    *   使用 Node.js 和 Express.js (初期) 或 NestJS (未来考虑) 构建。
-    *   集成 LangChain.js 来管理与 LLM 的交互和工具调用。
-*   **LLM (OpenAI API):** 大型语言模型，负责理解用户意图、决定调用哪些工具以及生成自然语言回复。
-*   **LangChain.js:** JavaScript/TypeScript 版本的 LangChain 框架，用于：
-    *   封装与 OpenAI API 的交互。
-    *   管理 Prompts。
-    *   创建 Chains (链) 和 Agents (智能体)。
-    *   将 MCP Server 提供的功能抽象为 LangChain Tools。
-*   **MCP Server:** 基于 `@jhgaylor/node-candidate-mcp-server` 库构建，提供候选人的结构化信息。
-    *   初期通过子进程和 STDIN/STDOUT 与 BFF 通信。
-    *   未来可以改造成通过 HTTP 提供服务。
+### 1. 智能对话API
 
-## 4. 技术栈选型
+**端点:** `POST /chat`
 
-*   **前端 (PC Web UI):**
-    *   初期：简单 HTML + JavaScript，用于快速验证。
-    *   后续：可选用 Vue.js 或 React 等现代前端框架。
-*   **后端 (Application BFF):**
-    *   运行时：Node.js
-    *   Web 框架：Express.js (初期)
-    *   LLM 应用框架：LangChain.js
-*   **大型语言模型 (LLM):**
-    *   OpenAI API (e.g., GPT-3.5-turbo, GPT-4)
-*   **MCP Server:**
-    *   基础库：`@jhgaylor/node-candidate-mcp-server`
-    *   通信方式 (BFF 与 MCP Server)：
-        *   初期：通过子进程启动 `examples/stdio.ts` (或其编译后的 `.js` 文件)，使用 STDIN/STDOUT 进行 JSON-RPC 通信。
-        *   未来：考虑将 MCP Server 改造为 HTTP 服务，使用 `@modelcontextprotocol/sdk` 中的 `StreamableHTTPServerTransport`。
+**功能:** 接收用户的自然语言问题，通过LLM理解意图并调用相应的MCP工具获取候选人信息。
 
-## 5. 详细流程设计
+**流程:**
+1. 接收用户消息
+2. LLM分析用户意图
+3. 调用集成的MCP工具获取信息
+4. LLM生成自然语言回复
+5. 返回结构化响应
 
-1.  **用户输入:** 用户在前端页面输入自然语言问题 (例如："介绍一下候选人的 GitHub 情况")。
-2.  **请求传递:** 前端将用户问题发送到 Application BFF。
-3.  **意图理解与工具选择 (LangChain.js + OpenAI - 第一轮):**
-    *   BFF 使用 LangChain.js Agent。
-    *   Agent 将用户问题和预设的 Prompt (包含可用工具列表和描述) 发送给 OpenAI API。
-    *   OpenAI API 返回一个判断，指示需要调用哪个或哪些 MCP Server 工具 (例如 `get_github_url`) 以及调用时需要的参数。
-4.  **MCP Server 调用:**
-    *   BFF 根据 LLM 的指示，格式化成 MCP JSON-RPC 请求。
-    *   BFF 通过 STDIN 将请求发送给作为子进程运行的 MCP Server (`stdio.ts` 脚本)。
-    *   MCP Server 执行相应工具 (如 `GetGithubUrl`)，并通过 STDOUT 返回 JSON-RPC 响应 (包含 GitHub URL)。
-5.  **信息获取与处理:** BFF 解析 MCP Server 的响应，提取所需信息。
-6.  **答案生成 (LangChain.js + OpenAI - 第二轮):**
-    *   BFF 将从 MCP Server 获取到的信息和原始用户问题 (以及可能的对话历史) 再次通过 LangChain.js 发送给 OpenAI API。
-    *   OpenAI API 根据这些信息生成一段自然的、针对用户问题的回复。
-7.  **响应返回:** BFF 将 AI 生成的回复发送回前端。
-8.  **前端展示:** 前端页面将 AI 的回复展示给用户。
+### 2. 集成MCP服务器
 
-**Prompt 设计思路 (初步):**
+**特点:**
+- 无外部依赖，源码直接集成
+- 支持候选人信息的结构化访问
+- 提供多种工具和资源
 
-*   **工具判断 Prompt:**
-    *   角色：你是一个能干的助手，你需要根据用户的问题，从以下可用工具中选择最合适的工具来获取信息。
-    *   可用工具列表：
-        *   `get_resume_text`: 获取候选人的纯文本简历内容。
-        *   `get_resume_url`: 获取候选人简历的链接。
-        *   `get_linkedin_url`: 获取候选人 LinkedIn 档案的链接。
-        *   `get_github_url`: 获取候选人 GitHub 主页的链接。
-        *   ... (其他 MCP Server 提供的工具)
-    *   输出格式要求：指定一个 JSON 格式，包含工具名称和参数。
-*   **答案生成 Prompt:**
-    *   角色：你是一个乐于助人的 AI 助手。
-    *   上下文：提供用户的问题和从工具调用中获取的相关信息。
-    *   指令：请根据提供的信息，用自然、友好的方式回答用户的问题。
+**可用工具:**
+- `get_resume_text`: 获取候选人简历文本
+- `get_resume_url`: 获取候选人简历链接
+- `get_linkedin_url`: 获取LinkedIn链接
+- `get_github_url`: 获取GitHub主页
+- `get_website_url`: 获取个人网站
 
-## 6. MCP Server 接口定义 (初期 - 基于 `examples/stdio.ts`)
+### 3. LangFuse监控
 
-根据 `@jhgaylor/node-candidate-mcp-server/examples/stdio.ts` 的配置，初期可用的工具/资源（通过 `resources/read` 或 `tools/call` 调用）包括：
+**功能:**
+- API调用统计
+- Token使用追踪
+- 错误日志记录
+- 性能指标收集
 
-*   **资源 (通过 `resources/read`):**
-    *   `candidate-info://resume-text`: 获取 `candidateConfig.resumeText`
-    *   `candidate-info://resume-url`: 获取 `candidateConfig.resumeUrl`
-    *   `candidate-info://linkedin-url`: 获取 `candidateConfig.linkedinUrl`
-    *   `candidate-info://github-url`: 获取 `candidateConfig.githubUrl`
-    *   `candidate-info://website-url`: 获取 `candidateConfig.websiteUrl`
-*   **工具 (通过 `tools/call`):**
-    *   `get_resume_text`: (功能上与读取资源 `candidate-info://resume-text` 类似)
-    *   `get_resume_url`: (功能上与读取资源 `candidate-info://resume-url` 类似)
-    *   ... (可以查看 `stdio.ts` 或 MCP Server 内部注册了哪些工具)
+**端点:** `GET /monitoring`
 
-*(注意：具体可用的工具和资源需要以 `stdio.ts` 实际运行时注册到 MCP Server 实例为准。)*
+## 配置管理
 
-## 7. 开发步骤与里程碑 (初步)
+### 候选人信息配置
 
-1.  **【BFF】基础后端框架搭建:**
-    *   初始化 Node.js + Express.js 项目。
-    *   设置基本的 API 端点 (例如 `/chat`)。
-2.  **【BFF & MCP】后端与 MCP Server (Stdio) 通信实现:**
-    *   在 BFF 中实现通过子进程启动 `node-candidate-mcp-server/examples/stdio.ts` (或其编译产物)。
-    *   实现向子进程的 STDIN 发送 JSON-RPC 请求，并从 STDOUT 读取和解析响应的逻辑。
-    *   编写一个简单的测试接口，手动构造 MCP 请求，验证与 MCP Server 的通信。
-3.  **【BFF & LLM】集成 LangChain.js 和 OpenAI API (第一轮：工具判断):**
-    *   安装 `langchain` 和 `openai` npm 包。
-    *   配置 OpenAI API Key。
-    *   使用 LangChain.js 定义 MCP 工具 (`Tool` 对象)。
-    *   创建 LangChain Agent，并设计用于工具判断的 Prompt。
-    *   实现接收用户问题后，调用 Agent 判断应使用哪个 MCP 工具的逻辑。
-4.  **【BFF & MCP & LLM】实现 LangChain.js Agent 调用 MCP Server 工具:**
-    *   将步骤 2 中的 MCP Server 通信逻辑封装成 LangChain `Tool` 的执行函数。
-    *   确保 Agent 能够成功调用这些封装好的 MCP 工具。
-5.  **【BFF & LLM】集成 LangChain.js (第二轮：基于工具结果生成回复):**
-    *   设计用于生成最终回复的 Prompt。
-    *   实现获取 MCP 工具返回结果后，结合用户问题，调用 OpenAI API 生成回复的逻辑。
-6.  **【Frontend】开发简单前端页面进行联调:**
-    *   创建简单的 HTML 页面，包含输入框和聊天显示区域。
-    *   实现将用户输入发送到 BFF `/chat` 接口，并展示返回的 AI 回复。
-7.  **【ALL】端到端测试和迭代优化。**
+候选人信息通过配置文件管理，支持热更新：
 
-## 8. (可选) 部署方案初步考虑
+*   `config/candidate.js`: 候选人基本信息
+*   `config/resume-content.js`: 详细简历内容
 
-*   **BFF 应用:** 可以部署到 Node.js 支持的云平台 (如 Vercel, Heroku, AWS EC2/Lambda, Google Cloud Run 等)。
-*   **MCP Server:**
-    *   Stdio 模式：与 BFF 应用部署在同一台服务器/容器内，由 BFF 应用作为子进程启动。
-    *   HTTP 模式 (未来)：可以作为独立服务部署。
-*   需要管理 OpenAI API Key 等敏感配置。
+### 环境变量
 
-## 9. (可选) 潜在风险与挑战
+```bash
+# 必需配置
+OPENAI_API_KEY=your_openai_api_key_here
+OPENAI_MODEL=gpt-4.1-nano
 
-*   **Prompt Engineering:** 设计高效、准确的 Prompt 可能需要多次迭代。
-*   **LLM 幻觉:** LLM 可能会生成不准确或虚构的信息，需要注意。
-*   **MCP Server 稳定性:** 确保作为子进程的 MCP Server 稳定运行，并能正确处理错误。
-*   **Stdio 通信的复杂性:** 管理子进程和 STDIN/STDOUT 流可能比 HTTP 通信更复杂，尤其是在错误处理和并发方面。
-*   **LangChain.js 学习曲线:** 团队成员可能需要时间熟悉 LangChain.js 的概念和用法。
-*   **成本控制:** OpenAI API 调用会产生费用，需要监控和管理。 
+# LangFuse监控（可选）
+LANGFUSE_PUBLIC_KEY=your_langfuse_public_key_here
+LANGFUSE_SECRET_KEY=your_langfuse_secret_key_here
+LANGFUSE_BASE_URL=https://cloud.langfuse.com
+
+# 应用配置
+NODE_ENV=production
+PORT=3000
+```
+
+## API端点
+
+### 核心端点
+
+*   `GET /` - 前端界面
+*   `GET /health` - 健康检查
+*   `GET /monitoring` - 监控状态
+*   `POST /chat` - 智能对话API
+*   `POST /mcp` - MCP协议端点
+
+### 测试端点
+
+*   `GET /test-mcp/resume-text` - 获取简历文本
+*   `GET /test-mcp/linkedin-url` - 获取LinkedIn链接
+*   `GET /test-mcp/github-url` - 获取GitHub链接
+
+## 部署架构
+
+### 集成模式优势
+
+1. **无外部依赖:** 所有MCP功能直接集成，无需外部进程
+2. **简化部署:** 单一应用，易于容器化和云部署
+3. **性能优化:** 无进程间通信开销
+4. **维护简单:** 统一的代码库和配置管理
+
+### 支持的部署平台
+
+1. **Vercel** - 自动部署、全球CDN
+2. **Railway** - 容器化部署、数据库支持
+3. **Docker** - 自建服务器部署
+4. **传统VPS** - PM2进程管理
+
+## 开发指南
+
+### 本地开发
+
+```bash
+# 安装依赖
+npm install
+
+# 配置环境变量
+cp .env.production .env
+# 编辑.env文件设置API密钥
+
+# 启动开发服务器
+npm run dev
+```
+
+### 更新候选人信息
+
+1. 编辑 `config/candidate.js` 和 `config/resume-content.js`
+2. 重启应用
+3. 验证更新是否生效
+
+### 添加新的MCP工具
+
+1. 在 `src/mcp-server/tools/` 中添加新工具
+2. 在 `llmService.js` 中注册新工具
+3. 更新系统提示词
+
+## 监控和日志
+
+### LangFuse监控
+
+访问 [LangFuse Dashboard](https://cloud.langfuse.com) 查看：
+- API调用统计
+- Token使用情况
+- 错误日志
+- 性能指标
+
+### 健康检查
+
+```bash
+# 检查应用状态
+curl http://localhost:3000/health
+
+# 检查监控状态
+curl http://localhost:3000/monitoring
+```
+
+## 故障排除
+
+### 常见问题
+
+1. **应用无法启动**
+   - 检查环境变量配置
+   - 验证OpenAI API密钥
+   - 查看应用日志
+
+2. **MCP工具无法加载**
+   - 确认配置文件格式正确
+   - 检查候选人配置文件
+
+3. **LangFuse监控不工作**
+   - 验证LangFuse密钥
+   - 检查网络连接
+
+### 调试命令
+
+```bash
+# 本地调试
+npm run dev
+
+# 生产环境测试
+npm run start:prod
+
+# 健康检查
+npm run health-check
+``` 

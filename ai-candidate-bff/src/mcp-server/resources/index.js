@@ -1,7 +1,4 @@
-import { McpServer, ReadResourceCallback } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { CandidateConfig } from "../config";
-
-function candidateResources(candidateConfig: CandidateConfig) {
+function candidateResources(candidateConfig) {
   return {
     ResumeText: new ResumeText(candidateConfig),
     ResumeUrl: new ResumeUrl(candidateConfig),
@@ -13,17 +10,13 @@ function candidateResources(candidateConfig: CandidateConfig) {
 }
 
 class Resource {
-  name: string;
-  uri: string;
-  callback: ReadResourceCallback;
-
-  constructor(name: string, uri: string, callback: ReadResourceCallback) {
+  constructor(name, uri, callback) {
     this.name = name;
     this.uri = uri;
     this.callback = callback;
   }
 
-  bind(server: McpServer) {
+  bind(server) {
     return server.resource(
       this.name,
       this.uri,
@@ -33,11 +26,11 @@ class Resource {
 }
 
 class ResumeText extends Resource {
-  constructor(candidateConfig: CandidateConfig) {
+  constructor(candidateConfig) {
     super(`${candidateConfig.name} Resume Text`, "candidate-info://resume-text", async () => {
       return {
         contents: [
-          { uri: "candidate-info://resume-text", mimeType: "text/plain", text: candidateConfig.resumeText! }
+          { uri: "candidate-info://resume-text", mimeType: "text/plain", text: candidateConfig.resumeText }
         ]
       };
     });
@@ -45,11 +38,11 @@ class ResumeText extends Resource {
 }
 
 class ResumeUrl extends Resource {
-  constructor(candidateConfig: CandidateConfig) {
+  constructor(candidateConfig) {
     super(`${candidateConfig.name} Resume URL`, "candidate-info://resume-url", async () => {
       return {
         contents: [
-          { uri: "candidate-info://resume-url", mimeType: "text/plain", text: candidateConfig.resumeUrl! }
+          { uri: "candidate-info://resume-url", mimeType: "text/plain", text: candidateConfig.resumeUrl }
         ]
       };
     });
@@ -57,11 +50,11 @@ class ResumeUrl extends Resource {
 }
 
 class LinkedinUrl extends Resource {
-  constructor(candidateConfig: CandidateConfig) {
+  constructor(candidateConfig) {
     super(`${candidateConfig.name} LinkedIn Profile URL`, "candidate-info://linkedin-url", async () => {
       return {
         contents: [
-          { uri: "candidate-info://linkedin-url", mimeType: "text/plain", text: candidateConfig.linkedinUrl! }
+          { uri: "candidate-info://linkedin-url", mimeType: "text/plain", text: candidateConfig.linkedinUrl }
         ]
       };
     });
@@ -69,11 +62,11 @@ class LinkedinUrl extends Resource {
 }
 
 class GithubUrl extends Resource {
-  constructor(candidateConfig: CandidateConfig) {
+  constructor(candidateConfig) {
     super(`${candidateConfig.name} GitHub Profile URL`, "candidate-info://github-url", async () => {
       return {
         contents: [
-          { uri: "candidate-info://github-url", mimeType: "text/plain", text: candidateConfig.githubUrl! }
+          { uri: "candidate-info://github-url", mimeType: "text/plain", text: candidateConfig.githubUrl }
         ]
       };
     });
@@ -81,11 +74,11 @@ class GithubUrl extends Resource {
 }
 
 class WebsiteUrl extends Resource {
-  constructor(candidateConfig: CandidateConfig) {
+  constructor(candidateConfig) {
     super(`${candidateConfig.name} Website URL`, "candidate-info://website-url", async () => {
       return {
         contents: [
-          { uri: "candidate-info://website-url", mimeType: "text/plain", text: candidateConfig.websiteUrl! }
+          { uri: "candidate-info://website-url", mimeType: "text/plain", text: candidateConfig.websiteUrl }
         ]
       };
     });
@@ -93,15 +86,15 @@ class WebsiteUrl extends Resource {
 }
 
 class WebsiteText extends Resource {
-  constructor(candidateConfig: CandidateConfig) {
+  constructor(candidateConfig) {
     super(`${candidateConfig.name} Website Text`, "candidate-info://website-text", async () => {
       return {
         contents: [
-          { uri: "candidate-info://website-text", mimeType: "text/plain", text: candidateConfig.websiteText! }
+          { uri: "candidate-info://website-text", mimeType: "text/plain", text: candidateConfig.websiteText }
         ]
       };
     });
   }
 }
 
-export { candidateResources };
+module.exports = { candidateResources }; 

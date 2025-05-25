@@ -1,24 +1,10 @@
-import { CandidateConfig, ServerConfig } from "../config";
-import { Tool } from "./types";
-import * as nodemailer from 'nodemailer';
-import { MailgunTransport } from 'mailgun-nodemailer-transport';
+const { Tool } = require("./types");
+const nodemailer = require('nodemailer');
+const { MailgunTransport } = require('mailgun-nodemailer-transport');
+const { z } = require("zod");
 
-
-import { z } from "zod";
-
-// Define a type for the tools collection
-interface CandidateToolCollection {
-  GetResumeText: GetResumeText;
-  GetResumeUrl: GetResumeUrl;
-  GetLinkedinUrl: GetLinkedinUrl;
-  GetGithubUrl: GetGithubUrl;
-  GetWebsiteUrl: GetWebsiteUrl;
-  GetWebsiteText: GetWebsiteText;
-  ContactCandidate?: ContactCandidate;
-}
-
-function candidateTools(candidateConfig: CandidateConfig, serverConfig: ServerConfig): CandidateToolCollection {
-  const tools: CandidateToolCollection = {
+function candidateTools(candidateConfig, serverConfig) {
+  const tools = {
     GetResumeText: new GetResumeText(candidateConfig),
     GetResumeUrl: new GetResumeUrl(candidateConfig),
     GetLinkedinUrl: new GetLinkedinUrl(candidateConfig),
@@ -32,9 +18,8 @@ function candidateTools(candidateConfig: CandidateConfig, serverConfig: ServerCo
   return tools;
 }
 
-
 class ContactCandidate extends Tool {
-  constructor(candidateConfig: CandidateConfig, serverConfig: ServerConfig) {
+  constructor(candidateConfig, serverConfig) {
     super(
       "contact_candidate",
       `Send an email to the candidate ${candidateConfig.name}`,
@@ -47,14 +32,14 @@ class ContactCandidate extends Tool {
         try {
           const transporter = nodemailer.createTransport(new MailgunTransport({
             auth: {
-              domain: serverConfig.mailgunDomain!,
-              apiKey: serverConfig.mailgunApiKey!
+              domain: serverConfig.mailgunDomain,
+              apiKey: serverConfig.mailgunApiKey
             }
           }));
           
           const mailOptions = {
             from: `AI Assistant <ai-assistant@${serverConfig.mailgunDomain}>`,
-            to: serverConfig.contactEmail!,
+            to: serverConfig.contactEmail,
             subject: args.subject,
             text: args.message,
             replyTo: args.reply_address
@@ -81,7 +66,7 @@ class ContactCandidate extends Tool {
 }
 
 class GetResumeText extends Tool {
-  constructor(candidateConfig: CandidateConfig) {
+  constructor(candidateConfig) {
     super(
       `get_resume_text`,
       `Get the resume text of the candidate ${candidateConfig.name}`,
@@ -98,7 +83,7 @@ class GetResumeText extends Tool {
 }
 
 class GetResumeUrl extends Tool {
-  constructor(candidateConfig: CandidateConfig) {
+  constructor(candidateConfig) {
     super(
       `get_resume_url`,
       `Get the resume URL of the candidate ${candidateConfig.name}`,
@@ -115,7 +100,7 @@ class GetResumeUrl extends Tool {
 }
 
 class GetLinkedinUrl extends Tool {
-  constructor(candidateConfig: CandidateConfig) {
+  constructor(candidateConfig) {
     super(
       `get_linkedin_url`,
       `Get the LinkedIn URL of the candidate ${candidateConfig.name}`,
@@ -132,7 +117,7 @@ class GetLinkedinUrl extends Tool {
 }
 
 class GetGithubUrl extends Tool {
-  constructor(candidateConfig: CandidateConfig) {
+  constructor(candidateConfig) {
     super(
       `get_github_url`,
       `Get the GitHub URL of the candidate ${candidateConfig.name}`,
@@ -149,7 +134,7 @@ class GetGithubUrl extends Tool {
 }
 
 class GetWebsiteUrl extends Tool {
-  constructor(candidateConfig: CandidateConfig) {
+  constructor(candidateConfig) {
     super(
       `get_website_url`,
       `Get the website URL of the candidate ${candidateConfig.name}`,
@@ -166,7 +151,7 @@ class GetWebsiteUrl extends Tool {
 }
 
 class GetWebsiteText extends Tool {
-  constructor(candidateConfig: CandidateConfig) {
+  constructor(candidateConfig) {
     super(
       `get_website_text`,
       `Get the website text of the candidate ${candidateConfig.name}`,
@@ -182,4 +167,4 @@ class GetWebsiteText extends Tool {
   }
 }
 
-export { candidateTools }; 
+module.exports = { candidateTools }; 

@@ -1,14 +1,5 @@
-import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { createServer, CandidateConfig, ServerConfig } from "../dist";
-
-async function startServer() {
-  try {
-    const candidateConfig = new CandidateConfig("陈嘉旭");
-    candidateConfig.resumeUrl = "";
-    candidateConfig.websiteUrl = "";
-    candidateConfig.linkedinUrl = "https://www.linkedin.com/in/jiaxu-chen-731896237/";
-    candidateConfig.githubUrl = "https://github.com/lukaliou123";
-    candidateConfig.resumeText = `{
+// 陈嘉旭的详细简历内容
+module.exports = `{
   "name": "陈嘉旭",
   "position": "AI应用开发/Golang后端开发",
   "contact": {
@@ -131,22 +122,4 @@ async function startServer() {
     "沟通协调能力: 能根据不同对象灵活调整沟通方式,确保双方就方案达成共识。",
     "抗压能力: 在高压力环境下保持状态,并及时完成工作。"
   ]
-}`;
-    
-    const serverConfig: ServerConfig = {
-      name: "jaydon-candidate-server",
-      version: "1.0.1",
-    };
-    
-    const server = createServer(serverConfig, candidateConfig);
-    console.log(`Starting MCP server: ${serverConfig.name} v${serverConfig.version}`);
-    await server.connect(new StdioServerTransport());    
-    console.log("Server connected via Stdio. Waiting for MCP messages...");
-  } catch (error) {
-    console.error("Failed to start server:", error);
-    process.exit(1);
-  }
-}
-
-// Execute the function
-startServer(); 
+}`; 
