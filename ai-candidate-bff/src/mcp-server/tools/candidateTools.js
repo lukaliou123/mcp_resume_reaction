@@ -30,7 +30,7 @@ class ContactCandidate extends Tool {
       },
       async (args, _extra) => {
         try {
-          const transporter = nodemailer.createTransporter(new MailgunTransport({
+          const transporter = nodemailer.createTransport(new MailgunTransport({
             auth: {
               domain: serverConfig.mailgunDomain,
               apiKey: serverConfig.mailgunApiKey

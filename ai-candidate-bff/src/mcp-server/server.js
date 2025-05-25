@@ -1,9 +1,8 @@
-const { McpServer } = require("@modelcontextprotocol/sdk/server/mcp.js");
+const { McpServer } = require("../../node_modules/@modelcontextprotocol/sdk/dist/cjs/server/mcp.js");
 const { ServerConfig, CandidateConfig } = require("./config");
 const { candidateResources } = require("./resources");
-const { candidateTools } = require("./tools");
+const { candidateTools, interviewTools } = require("./tools");
 const { candidatePrompts } = require("./prompts");
-const { interviewTools } = require("./tools/interviewTools");
 
 // Return a new instance of an MCP server
 function createServer(serverConfig, candidateConfig) {

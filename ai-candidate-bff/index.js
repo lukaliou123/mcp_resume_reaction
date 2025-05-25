@@ -1,10 +1,11 @@
+require('dotenv').config();
+
 const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
 const path = require('path');
-const mcpService = require('./mcpService');
+const mcpService = require('./src/services/mcpService');
 const llmService = require('./llmService');
-require('dotenv').config();
 
 // 初始化Express应用
 const app = express();
@@ -19,7 +20,42 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 // 简单的健康检查端点
 app.get('/health', (req, res) => {
-  res.status(200).json({ status: 'ok', message: 'Service is running' });
+  res.status(200).json({ 
+    status: 'ok', 
+    message: 'Service is running',
+    mcpMode: 'integrated',
+    timestamp: new Date().toISOString()
+  });
+});
+
+// LangFuse 监控状态端点
+app.get('/monitoring', (req, res) => {
+  const langfuseConfig = {
+    enabled: !!(process.env.LANGFUSE_PUBLIC_KEY && process.env.LANGFUSE_SECRET_KEY),
+    baseUrl: process.env.LANGFUSE_BASE_URL || 'Not configured',
+    publicKey: process.env.LANGFUSE_PUBLIC_KEY ? 
+      `${process.env.LANGFUSE_PUBLIC_KEY.substring(0, 10)}...` : 'Not configured'
+  };
+
+  res.status(200).json({
+    status: 'ok',
+    monitoring: {
+      langfuse: langfuseConfig,
+      features: [
+        'API call tracking',
+        'Token usage monitoring', 
+        'Error logging',
+        'Performance metrics'
+      ]
+    },
+    timestamp: new Date().toISOString()
+  });
+});
+
+// MCP HTTP端点 - 标准MCP协议接口
+app.post('/mcp', async (req, res) => {
+  console.log('Received MCP request:', req.body?.method || 'unknown');
+  await mcpService.handleMCPRequest(req, res);
 });
 
 // MCP Server测试接口
@@ -44,6 +80,9 @@ app.get('/test-mcp/:resource', async (req, res) => {
       case 'website-url':
         result = await mcpService.getWebsiteUrl();
         break;
+      case 'website-text':
+        result = await mcpService.getWebsiteText();
+        break;
       default:
         return res.status(400).json({ error: `Unknown resource: ${resource}` });
     }
@@ -51,23 +90,6 @@ app.get('/test-mcp/:resource', async (req, res) => {
     res.status(200).json(result);
   } catch (error) {
     console.error(`Error in MCP test endpoint: ${error.message}`);
-    res.status(500).json({ error: 'Failed to communicate with MCP Server', message: error.message });
-  }
-});
-
-// 直接的MCP请求接口（更灵活的测试接口）
-app.post('/mcp-request', async (req, res) => {
-  try {
-    const { method, params } = req.body;
-    
-    if (!method) {
-      return res.status(400).json({ error: 'Method is required' });
-    }
-    
-    const result = await mcpService.sendRequest(method, params || {});
-    res.status(200).json(result);
-  } catch (error) {
-    console.error(`Error in MCP request endpoint: ${error.message}`);
     res.status(500).json({ error: 'Failed to communicate with MCP Server', message: error.message });
   }
 });
@@ -97,7 +119,7 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// 优雅关闭，确保MCP Server子进程也被停止
+// 优雅关闭
 process.on('SIGINT', () => {
   console.log('Shutting down server...');
   mcpService.stop();
@@ -112,6 +134,9 @@ process.on('SIGTERM', () => {
 
 // 启动服务器
 app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
-  console.log(`Visit http://localhost:${PORT} to interact with the AI assistant`);
+  console.log(`🚀 AI Candidate BFF Server is running on port ${PORT}`);
+  console.log(`📱 Visit http://localhost:${PORT} to interact with the AI assistant`);
+  console.log(`🔧 MCP endpoint available at http://localhost:${PORT}/mcp`);
+  console.log(`🧪 Test endpoints available at http://localhost:${PORT}/test-mcp/{resource}`);
+  console.log(`💬 Chat endpoint available at http://localhost:${PORT}/chat`);
 }); 
