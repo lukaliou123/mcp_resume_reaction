@@ -639,10 +639,6 @@
             <button class="control-btn" id="clear-history-btn" title="清除对话历史">
                 <i class="fas fa-trash"></i> 清除历史
             </button>
-            <button class="control-btn" id="new-session-btn" title="开始新对话">
-                <i class="fas fa-plus"></i> 新对话
-            </button>
-            <span class="session-info" id="session-info">会话: 未开始</span>
         </div>
         
         <div class="input-container">
@@ -655,7 +651,7 @@
     </div>
 
     <div class="footer">
-        © 2024 AI候选人信息助手 | Powered by LangChain.js
+        © 2025 AI候选人信息助手 | Powered by LangChain.js
     </div>
 
     <script>
@@ -674,9 +670,6 @@
             document.getElementById('current-time').textContent = timeStr;
         }
         setCurrentTime();
-
-        // 初始化会话信息
-        updateSessionInfo();
 
         // 添加消息到聊天窗口
         function addMessage(text, isUser, suggestions = []) {
@@ -841,16 +834,7 @@
 
         // 会话管理变量已在上方声明
 
-        // 更新会话信息显示
-        function updateSessionInfo() {
-            const sessionInfo = document.getElementById('session-info');
-            if (currentSessionId) {
-                const shortId = currentSessionId.substring(currentSessionId.length - 8);
-                sessionInfo.textContent = `会话: ${shortId}`;
-            } else {
-                sessionInfo.textContent = '会话: 未开始';
-            }
-        }
+
 
         // 清除对话历史
         async function clearChatHistory() {
@@ -885,21 +869,7 @@
             }
         }
 
-        // 开始新对话
-        function startNewSession() {
-            // 清除当前会话ID
-            currentSessionId = null;
-            localStorage.removeItem('chatSessionId');
-            
-            // 清除前端显示的消息
-            chatContainer.innerHTML = '';
-            
-            // 更新会话信息
-            updateSessionInfo();
-            
-            // 添加欢迎消息
-            addMessage('欢迎！我是AI候选人信息助手，请问您想了解候选人的哪些信息？', false);
-        }
+
 
         // 修改sendMessage以保存消息并分离出实际的服务器请求
         async function sendMessage() {
@@ -988,7 +958,6 @@
 
         // 对话历史控制按钮事件
         document.getElementById('clear-history-btn').addEventListener('click', clearChatHistory);
-        document.getElementById('new-session-btn').addEventListener('click', startNewSession);
 
         // 快速问题按钮
         const quickQuestions = document.getElementById('quick-questions');
