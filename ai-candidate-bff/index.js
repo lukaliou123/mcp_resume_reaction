@@ -111,10 +111,12 @@ app.post('/chat', async (req, res) => {
     console.log(`接收到聊天请求: ${message} (Session: ${currentSessionId})`);
     const response = await llmService.processQuery(message, currentSessionId);
     
-    // 返回响应和会话ID
+    // 返回响应、建议和会话ID
     res.status(200).json({
-      ...response,
-      sessionId: currentSessionId
+      text: response.text,
+      suggestions: response.suggestions || [],
+      sessionId: currentSessionId,
+      timestamp: new Date().toISOString()
     });
   } catch (error) {
     console.error('Error in chat endpoint:', error);

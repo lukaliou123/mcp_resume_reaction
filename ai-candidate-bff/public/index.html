@@ -276,6 +276,57 @@
             box-shadow: 0 1px 2px rgba(0,0,0,0.05);
         }
 
+        /* 对话建议按钮 */
+        .suggestions-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin-top: 0.8rem;
+            padding-top: 0.8rem;
+            border-top: 1px solid #f0f0f0;
+        }
+
+        .suggestions-label {
+            width: 100%;
+            font-size: 0.8rem;
+            color: #6c757d;
+            margin-bottom: 0.3rem;
+            font-weight: 500;
+        }
+
+        .suggestion-btn {
+            background-color: #f8f9fa;
+            color: var(--primary-color);
+            border: 1px solid #dee2e6;
+            border-radius: 15px;
+            padding: 0.4rem 0.8rem;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            white-space: nowrap;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .suggestion-btn:hover {
+            background-color: var(--accent-color);
+            color: white;
+            border-color: var(--accent-color);
+            transform: translateY(-1px);
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        .suggestion-btn:active {
+            transform: translateY(0px);
+            background-color: var(--secondary-color);
+        }
+
+        .suggestion-btn::before {
+            content: '💡';
+            margin-right: 0.3rem;
+            font-size: 0.8rem;
+        }
+
         /* 对话历史控制 */
         .chat-controls {
             display: flex;
@@ -628,7 +679,7 @@
         updateSessionInfo();
 
         // 添加消息到聊天窗口
-        function addMessage(text, isUser) {
+        function addMessage(text, isUser, suggestions = []) {
             const messageWrapper = document.createElement('div');
             messageWrapper.classList.add('message-wrapper');
             if (isUser) messageWrapper.classList.add('user-wrapper');
@@ -656,6 +707,33 @@
                 // 注意：Marked.js的输出可能包含HTML，因此直接设置为innerHTML
                 // 需要确保AI的输出是可信的，或者进行适当的清理
                 messageDiv.innerHTML = marked.parse(text);
+                
+                // 如果是AI消息且有建议，添加建议按钮
+                if (suggestions && suggestions.length > 0) {
+                    const suggestionsContainer = document.createElement('div');
+                    suggestionsContainer.classList.add('suggestions-container');
+                    
+                    const suggestionsLabel = document.createElement('div');
+                    suggestionsLabel.classList.add('suggestions-label');
+                    suggestionsLabel.textContent = '💭 您可能还想了解：';
+                    suggestionsContainer.appendChild(suggestionsLabel);
+                    
+                    suggestions.forEach(suggestion => {
+                        const suggestionBtn = document.createElement('button');
+                        suggestionBtn.classList.add('suggestion-btn');
+                        suggestionBtn.textContent = suggestion;
+                        suggestionBtn.onclick = () => {
+                            messageInput.value = suggestion;
+                            sendMessage();
+                            
+                            // 统计建议点击（可选）
+                            console.log('🎯 Suggestion clicked:', suggestion);
+                        };
+                        suggestionsContainer.appendChild(suggestionBtn);
+                    });
+                    
+                    messageDiv.appendChild(suggestionsContainer);
+                }
             }
             
             // 添加时间戳
@@ -869,8 +947,13 @@
                 // 移除加载中消息
                 loadingMessageWrapper.remove();
                 
-                // 显示AI回复
-                addMessage(data.text, false);
+                // 显示AI回复和建议
+                addMessage(data.text, false, data.suggestions || []);
+                
+                // 如果有建议，在控制台记录
+                if (data.suggestions && data.suggestions.length > 0) {
+                    console.log('💡 Generated suggestions:', data.suggestions);
+                }
             } catch (error) {
                 console.error('Error:', error);
                 

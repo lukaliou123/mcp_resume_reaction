@@ -231,6 +231,108 @@ class LLMService {
     ];
   }
 
+  // 生成对话建议的方法
+  async generateSuggestions(conversationContext, aiResponse, userMessage) {
+    try {
+      const suggestionPrompt = `
+基于以下对话信息，生成2-3个相关的后续问题建议：
+
+用户问题：${userMessage}
+AI完整回复：${aiResponse}
+对话上下文：${JSON.stringify(conversationContext.slice(-2))}
+
+核心要求：
+1. 仔细分析AI回复中提到的具体内容（项目名称、技术栈、公司名、具体经历等）
+2. 基于这些具体实体生成针对性的深入问题，引导用户探索细节
+3. 避免生成宽泛的通用问题，要针对具体内容提问
+4. 问题长度控制在15字以内，自然口语化
+5. 优先级：具体项目详情 > 技术实现细节 > 工作经历 > 通用问题
+6. 避免重复已讨论的问题
+
+生成策略：
+- 如果提到具体项目名称，问项目的技术架构、难点、成果等
+- 如果提到技术栈，问具体的使用场景、优化经验等  
+- 如果提到工作经历，问具体职责、团队规模、业务成果等
+- 如果提到教育背景，问专业课程、实践项目等
+
+返回JSON格式：
+{"suggestions": ["问题1", "问题2", "问题3"]}
+
+示例分析：
+如果AI回复提到"AI候选人BFF系统"、"MCP协议"、"OpenAI"，应该生成：
+- "MCP协议有什么优势？"
+- "系统架构是怎样的？"  
+- "支持哪些AI提供商？"
+
+而不是生成通用问题如"遇到什么挑战？"、"技术栈是什么？"
+`;
+
+      const result = await this.model.invoke([
+        { role: "system", content: "你是一个专业的HR助手，擅长生成有价值的面试问题。请严格按照JSON格式返回结果。" },
+        { role: "user", content: suggestionPrompt }
+      ], {
+        callbacks: [this.langfuseHandler],
+        metadata: {
+          type: "suggestion_generation",
+          user_query: userMessage,
+          timestamp: new Date().toISOString(),
+        },
+      });
+      
+      console.log("🤖 Suggestion generation result:", result.content);
+      
+      // 尝试解析JSON
+      const cleanContent = result.content.trim();
+      let parsedResult;
+      
+      // 处理可能的markdown代码块包装
+      if (cleanContent.startsWith('```json')) {
+        const jsonMatch = cleanContent.match(/```json\s*([\s\S]*?)\s*```/);
+        if (jsonMatch) {
+          parsedResult = JSON.parse(jsonMatch[1]);
+        }
+      } else if (cleanContent.startsWith('```')) {
+        const jsonMatch = cleanContent.match(/```\s*([\s\S]*?)\s*```/);
+        if (jsonMatch) {
+          parsedResult = JSON.parse(jsonMatch[1]);
+        }
+      } else {
+        parsedResult = JSON.parse(cleanContent);
+      }
+      
+      // 验证结果格式
+      if (parsedResult && Array.isArray(parsedResult.suggestions)) {
+        console.log("✅ Generated suggestions:", parsedResult.suggestions);
+        return parsedResult;
+      } else {
+        console.warn("⚠️ Invalid suggestion format:", parsedResult);
+        return { suggestions: [] };
+      }
+      
+    } catch (error) {
+      console.error('❌ Failed to generate suggestions:', error);
+      
+      // 记录错误到 LangFuse
+      if (this.langfuseHandler) {
+        this.langfuseHandler.handleLLMError(error, {
+          type: "suggestion_generation_error",
+          user_query: userMessage,
+          error_type: error.constructor.name,
+          timestamp: new Date().toISOString(),
+        });
+      }
+      
+      // 返回默认建议
+      return { 
+        suggestions: [
+          "能详细说说吗？",
+          "还有其他的吗？",
+          "技术栈是什么？"
+        ]
+      };
+    }
+  }
+
   async processQuery(userMessage, sessionId = 'default') {
     if (!this.agent) {
       await new Promise(resolve => {
@@ -292,8 +394,19 @@ class LLMService {
 
       // 保存AI回复到历史
       await chatHistoryService.addMessage(sessionId, 'assistant', finalText);
+
+      // 生成对话建议（并行处理以提高性能）
+      console.log("🎯 Generating conversation suggestions...");
+      const suggestions = await this.generateSuggestions(
+        chatHistory,
+        finalText,
+        userMessage
+      );
     
-      return { text: finalText };
+      return { 
+        text: finalText,
+        suggestions: suggestions.suggestions || []
+      };
     } catch (error) {
       console.error("Error in LLM processing:", error);
       
