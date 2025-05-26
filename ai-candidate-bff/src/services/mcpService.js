@@ -53,6 +53,69 @@ class MCPService {
     };
   }
 
+  // 新增：细化的简历信息获取方法
+  async getEducationBackground() {
+    const resumeData = JSON.parse(this.candidateConfig.resumeText);
+    return {
+      education: resumeData.education,
+      source: 'integrated-mcp-server'
+    };
+  }
+
+  async getWorkExperience() {
+    const resumeData = JSON.parse(this.candidateConfig.resumeText);
+    return {
+      work_experience: resumeData.work_experience,
+      source: 'integrated-mcp-server'
+    };
+  }
+
+  async getPersonalProjects() {
+    const resumeData = JSON.parse(this.candidateConfig.resumeText);
+    return {
+      personal_projects: resumeData.personal_projects,
+      source: 'integrated-mcp-server'
+    };
+  }
+
+  async getWorkProjects() {
+    const resumeData = JSON.parse(this.candidateConfig.resumeText);
+    return {
+      work_projects: resumeData.work_projects,
+      source: 'integrated-mcp-server'
+    };
+  }
+
+  async getSkills() {
+    const resumeData = JSON.parse(this.candidateConfig.resumeText);
+    return {
+      skills: resumeData.skills,
+      source: 'integrated-mcp-server'
+    };
+  }
+
+  async getOtherExperience() {
+    const resumeData = JSON.parse(this.candidateConfig.resumeText);
+    return {
+      other_experience: resumeData.other_experience,
+      source: 'integrated-mcp-server'
+    };
+  }
+
+  async getBasicInfo() {
+    const resumeData = JSON.parse(this.candidateConfig.resumeText);
+    return {
+      basic_info: {
+        name: resumeData.name,
+        position: resumeData.position,
+        contact: resumeData.contact,
+        links: resumeData.links,
+        self_evaluation: resumeData.self_evaluation
+      },
+      source: 'integrated-mcp-server'
+    };
+  }
+
   async getResumeUrl() {
     return { 
       url: this.candidateConfig.resumeUrl || "Resume URL not available",

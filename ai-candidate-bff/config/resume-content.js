@@ -52,9 +52,79 @@ module.exports = `{
     }
   ],
   "personal_projects": [
+  {
+  "name": "AI候选人BFF系统",
+  "period": "2025-05 ~ 至今",
+  "url": "https://github.com/lukaliou123/mcp_resume_reaction",
+  "background": "开发一个智能候选人后端服务系统，通过MCP协议集成候选人信息，结合大语言模型提供智能问答服务，支持多AI提供商（OpenAI/阿里云千问），并具备完整的监控和部署能力。",
+  "tech_stack": [
+    "Node.js", 
+    "Express.js", 
+    "LangChain.js", 
+    "MCP协议", 
+    "OpenAI GPT-4", 
+    "阿里云千问", 
+    "LangFuse", 
+    "Docker", 
+    "Vercel", 
+    "腾讯云"
+  ],
+  "details": [
+    "架构设计与技术选型: 设计基于MCP协议的候选人信息服务架构，选择LangChain.js作为AI编排框架，实现模块化和可扩展的系统设计。",
+    "MCP服务器开发: 开发node-candidate-mcp-server库，实现候选人信息的资源管理和工具调用，支持细化的信息获取接口，优化token消耗和响应速度。",
+    "BFF服务开发: 构建Express.js后端服务，集成MCP服务器，实现RESTful API接口，支持流式响应和错误处理，提供前端友好的数据格式。",
+    "多AI提供商集成: 实现OpenAI和阿里云千问的双提供商支持，根据地区配置自动切换，解决不同模型的语义匹配差异问题。",
+    "监控与可观测性: 集成LangFuse进行全链路监控，覆盖AI请求、工具调用、性能指标等，便于问题诊断和性能优化。",
+    "部署与运维: 配置Docker容器化部署，支持Vercel和腾讯云多平台部署，解决依赖同步和构建问题，确保生产环境稳定运行。",
+    "功能迭代与优化: 实现细化MCP工具功能，将粗粒度简历获取拆分为7个精确工具，提升语义匹配准确性，减少60-80%的token消耗。"
+  ]
+    },
+      {
+      "name": "Browser CoT · 浏览器思维链记录与可视化插件",
+      "period": "2025-05 ~ 至今",
+      "url": "https://github.com/lukaliou123/browser-cot",
+      "description": "开发一款浏览器插件，自动捕捉用户的网页浏览行为，构建思维链（Chain of Thought）并进行可视化展示，旨在帮助用户更好地理解和管理自己的信息浏览路径。",
+      "tech_stack": [
+        "JavaScript",
+        "Chrome Extension APIs",
+        "LangChain",
+        "HTML/CSS",
+        "D3.js",
+        "Node.js"
+      ],
+      "details": [
+        "自动记录用户的网页浏览行为，包括点击、滚动、停留时间等，构建用户的思维链。",
+        "集成 LangChain，实现对用户浏览内容的语义分析，提取关键词和主题。",
+        "使用 D3.js 对思维链进行可视化展示，帮助用户直观了解自己的信息浏览路径。",
+        "提供插件界面，允许用户查看、编辑和管理自己的思维链。",
+        "支持数据导出，方便用户进行进一步的分析和归档。"
+      ]
+  },
+      {
+      "name": "Ideas Collection · 个人想法收集与知识管理系统",
+      "period": "2025-04 ~ 至今",
+      "url": "https://github.com/lukaliou123/ideas_collection",
+      "description": "构建一个轻量级的个人想法收集与知识管理平台，支持多源信息的统一收集、分类、检索与展示，旨在提升个人信息整理与复盘效率。",
+      "tech_stack": [
+        "Python",
+        "FastAPI",
+        "Docker",
+        "Markdown",
+        "SQLite",
+        "Jinja2"
+      ],
+      "details": [
+        "多源信息收集：支持从网页、命令行等多种渠道快速收集想法和笔记。",
+        "结构化存储：采用 Markdown 格式进行内容存储，便于后续的编辑和迁移。",
+        "标签与分类：实现灵活的标签系统，支持多维度的内容分类与检索。",
+        "Web 界面展示：基于 Jinja2 模板引擎构建简洁的 Web 界面，方便内容浏览与管理。",
+        "Docker 部署：提供 Dockerfile 和 docker-compose 配置，简化部署流程，支持快速本地或远程部署。"
+      ]
+    },
     {
       "name": "旅游助手智能体",
       "period": "2025-04 ~ 至今",
+      "url": "https://github.com/lukaliou123/eino_travel_assistant",
       "description": "基于RAG + ReAct 架构，融合大语言模型与地图服务，使用字节跳动CloudWeGo Eino框架与高德地图MCP SSE辅以Cursor开发，打造一站式智能旅游咨询助手，支持自然语言问答、POI推荐、路线规划与上下文记忆，提升用户旅游规划效率与体验。",
       "tech_stack": [
         "Golang", "Cursor", "CloudWeGo Eino框架", "高德地图 MCP SSE", "火山引擎ARK", "Redis-Stack", "MySQL", "Hertz", "APMPlus", "Langfuse", "Docker"
@@ -73,6 +143,7 @@ module.exports = `{
   ],
   "work_projects": [
     {
+      "company": "Klook Travel",
       "name": "韩国手机号格式统一",
       "background": "解决因韩国手机号可带「0」或不带「0」导致的重复注册、重复账号问题，对注册、登录、转区、注销等流程进行全面改造，并兼容老旧及新版框架。",
       "tech_stack": ["Golang", "MySQL", "Redis", "XML 旧框架", "自研 Gin-like 新框架"],
@@ -83,6 +154,7 @@ module.exports = `{
       ]
     },
     {
+      "company": "Klook Travel",
       "name": "Kakao Sync 登录及订阅管理",
       "background": "引入 Kakao Sync 接口，实现用户使用Kakao 账号快速登录、管理订阅关系，以及与内部系统数据同步，以更好地服务韩国市场。",
       "tech_stack": ["Golang", "MySQL", "Redis", "自研MQ", "OAuth2.0"],
@@ -92,7 +164,33 @@ module.exports = `{
         "文档维护与方案宣讲: 整理前同事的项目资料,更新流程图与接口文档,并主持跨部门会议介绍后端方案,确保各方理解一致。",
         "跨团队沟通: 与前端、产品、运营(CRM)等团队多次沟通需求与实现细节,推动项目顺利落地并上线。"
       ]
-    }
+    },
+    {
+    "company": "ThoughtWorks China",
+    "name": "Thoughtworks GTB 培训项目实践",
+    "background": "参与并完成了 Thoughtworks 中国入职前培训 GTB（Graduates Technique Bootcamp），围绕敏捷开发方法与主流技术栈进行系统性训练。",
+    "tech_stack": ["Java", "CLI", "SpringBoot", "HTML", "CSS", "JS", "React", "Mockito"],
+    "responsibilities": [
+      "掌握并应用了 TDD（测试驱动开发）进行项目开发流程，追踪项目演进与需求变化。",
+      "学习并应用了功能测试，如单元测试、集成测试、读取与验证代码中的可维护性与稳定性。",
+      "学习并应用在项目中的模拟接口测试，包括使用 Mockito 的模拟框架进行接口依赖隔离测试。"
+    ]
+  },
+  {
+  "company": "Gangtise",
+    "name": "呼叫录音分析与语音转文本系统",
+    "background": "负责公司语音呼叫系统中的后端功能开发，包括通话录音的入库、存储与处理，并接入语音识别（ASR）系统进行文本转化，为多个业务线提供智能语音处理能力。",
+    "tech_stack": ["SpringBoot", "MySQL", "Redis", "阿里云RPC", "zookeeper"],
+    "responsibilities": [
+      "通过与电信公司对接，获取呼叫音频及数据，构建录音服务端处理与存储机制。",
+      "通过分呼叫维度的数据建模和入库，进行语音数据分发与识别，生成文本以供后续检索。",
+      "使用 MySQL 进行部分结构化数据存储，并使用 Redis 进行缓存优化，有效缓解数据冲突问题。",
+      "引入 zookeeper 实现节点选举和服务发现机制，提高服务稳定性与可扩展性。",
+      "通过 RPC 框架实现前后端服务解耦与统一调度，优化接口性能，提升系统处理效率。"
+    ]
+  }
+
+
   ],
   "skills": [
     "熟悉 Golang, Java, Python等编程语言,具备良好的代码规范与开发习惯",

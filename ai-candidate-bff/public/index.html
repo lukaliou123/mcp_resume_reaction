@@ -438,6 +438,16 @@
             .chat-container {
                 height: 60vh;
             }
+
+            /* 移动端快速问题按钮优化 */
+            .quick-questions {
+                gap: 0.6rem;
+            }
+
+            .quick-question-btn {
+                font-size: 0.85rem;
+                padding: 0.5rem 1rem;
+            }
         }
 
         @media (max-width: 480px) {
@@ -463,6 +473,20 @@
 
             button i {
                 margin-right: 0;
+            }
+
+            /* 小屏幕快速问题按钮进一步优化 */
+            .quick-questions {
+                gap: 0.5rem;
+                justify-content: center;
+            }
+
+            .quick-question-btn {
+                font-size: 0.8rem;
+                padding: 0.4rem 0.8rem;
+                flex: 1;
+                min-width: 0;
+                max-width: calc(50% - 0.25rem);
             }
         }
     </style>
@@ -512,7 +536,9 @@
             <button class="quick-question-btn">介绍候选人背景</button>
             <button class="quick-question-btn">技术能力有哪些</button>
             <button class="quick-question-btn">工作经历</button>
-            <button class="quick-question-btn">项目经验</button>
+            <button class="quick-question-btn">个人项目</button>
+            <button class="quick-question-btn">工作项目</button>
+            <button class="quick-question-btn">非IT经验</button>
             <button class="quick-question-btn">教育背景</button>
         </div>
         

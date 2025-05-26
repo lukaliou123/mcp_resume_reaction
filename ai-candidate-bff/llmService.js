@@ -7,21 +7,41 @@ const mcpService = require('./src/services/mcpService');
 const SYSTEM_PROMPT = `你是一个专业的招聘助手，负责为用户介绍和解答关于候选人"陈嘉旭"的各类信息。你可以调用多种工具获取候选人的简历、教育背景、工作经历、项目经验、技能特长、社交媒体链接等结构化数据。
 你的目标是：
 - 充分理解用户的真实意图，判断需要调用哪些工具获取信息。
+- 优先使用细化的工具获取特定信息，避免调用完整简历工具造成token浪费。
 - 综合 MCP 工具返回的内容，用自然、友好、专业的语言回答用户问题。
 - 回答要突出候选人的优势和亮点，避免机械地罗列信息。
 - 如果信息不足，要坦诚说明，不要编造内容。
 - 回答要简明扼要，结构清晰，适合在聊天界面展示。
 请根据用户的问题和你获取到的候选人信息，生成最合适的回复。
-【候选人信息工具包括但不限于】：
-- get_resume_text：获取候选人简历文本
-- get_resume_url：获取候选人简历链接
+
+【可用的候选人信息工具】：
+细化工具（优先使用）：
+- get_education_background：获取教育背景、学历信息
+- get_work_experience：获取工作经历、职业经验
+- get_personal_projects：获取个人项目经历
+- get_work_projects：获取工作项目经历
+- get_skills：获取技能特长、技术能力
+- get_other_experience：获取其他经历、非IT经历
+- get_basic_info：获取基本信息、联系方式
+
+链接工具：
+- get_resume_url：获取简历链接
 - get_linkedin_url：获取LinkedIn链接
 - get_github_url：获取GitHub主页
 - get_website_url：获取个人网站
-- 其他定制化工具
-【示例】：
-- 用户问"候选人有哪些技术能力？"时，你应调用相关工具，提炼技能亮点，结构化地回答。
-- 用户问"能介绍一下候选人的背景吗？"时，你应综合简历、教育、工作经历等信息，简明扼要地介绍。
+
+备用工具：
+- get_resume_text：获取完整简历（仅在需要全面信息时使用）
+
+【工具选择策略】：
+- 用户问"教育背景"、"学历"时 → 使用 get_education_background
+- 用户问"工作经历"、"职业经验"时 → 使用 get_work_experience  
+- 用户问"项目经验"时 → 使用 get_personal_projects 和 get_work_projects
+- 用户问"技能"、"技术能力"时 → 使用 get_skills
+- 用户问"基本信息"、"联系方式"时 → 使用 get_basic_info
+- 用户问"其他经历"时 → 使用 get_other_experience
+- 用户需要全面了解时 → 组合使用多个细化工具
+
 请始终以专业、友好、可信赖的语气作答。`;
 
 class LLMService {
@@ -105,17 +125,76 @@ class LLMService {
   // 创建集成的MCP工具
   _createIntegratedMCPTools() {
     return [
+      // 细化的简历信息工具
+      new DynamicTool({
+        name: "mcp__candidate__get_education_background",
+        description: "获取候选人的教育背景、学历、教育经历信息 (Get candidate's education background, academic qualifications, educational experience)",
+        func: async () => {
+          const result = await mcpService.getEducationBackground();
+          return JSON.stringify(result);
+        },
+      }),
+      new DynamicTool({
+        name: "mcp__candidate__get_work_experience",
+        description: "获取候选人的工作经历、职业经验信息 (Get candidate's work experience, professional background)",
+        func: async () => {
+          const result = await mcpService.getWorkExperience();
+          return JSON.stringify(result);
+        },
+      }),
+      new DynamicTool({
+        name: "mcp__candidate__get_personal_projects",
+        description: "获取候选人的个人项目、业余项目经历 (Get candidate's personal projects, side projects)",
+        func: async () => {
+          const result = await mcpService.getPersonalProjects();
+          return JSON.stringify(result);
+        },
+      }),
+      new DynamicTool({
+        name: "mcp__candidate__get_work_projects",
+        description: "获取候选人的工作项目、职业项目经历 (Get candidate's work projects, professional projects)",
+        func: async () => {
+          const result = await mcpService.getWorkProjects();
+          return JSON.stringify(result);
+        },
+      }),
+      new DynamicTool({
+        name: "mcp__candidate__get_skills",
+        description: "获取候选人的技能特长、技术能力信息 (Get candidate's skills, technical abilities, competencies)",
+        func: async () => {
+          const result = await mcpService.getSkills();
+          return JSON.stringify(result);
+        },
+      }),
+      new DynamicTool({
+        name: "mcp__candidate__get_other_experience",
+        description: "获取候选人的其他经历、非IT经历、额外经验 (Get candidate's other experience, non-IT background, additional experience)",
+        func: async () => {
+          const result = await mcpService.getOtherExperience();
+          return JSON.stringify(result);
+        },
+      }),
+      new DynamicTool({
+        name: "mcp__candidate__get_basic_info",
+        description: "获取候选人的基本信息、联系方式、个人资料 (Get candidate's basic information, contact details, personal profile)",
+        func: async () => {
+          const result = await mcpService.getBasicInfo();
+          return JSON.stringify(result);
+        },
+      }),
+      // 保留原有的完整简历工具作为备用
       new DynamicTool({
         name: "mcp__candidate__get_resume_text",
-        description: "Get the candidate's resume text with detailed information",
+        description: "获取候选人的完整简历文本信息 (Get the candidate's complete resume text with all detailed information)",
         func: async () => {
           const result = await mcpService.getResumeText();
           return JSON.stringify(result.text);
         },
       }),
+      // 链接相关工具
       new DynamicTool({
         name: "mcp__candidate__get_resume_url",
-        description: "Get the candidate's resume URL",
+        description: "获取候选人的简历链接 (Get the candidate's resume URL)",
         func: async () => {
           const result = await mcpService.getResumeUrl();
           return result.url;
@@ -123,7 +202,7 @@ class LLMService {
       }),
       new DynamicTool({
         name: "mcp__candidate__get_linkedin_url",
-        description: "Get the candidate's LinkedIn profile URL",
+        description: "获取候选人的LinkedIn链接 (Get the candidate's LinkedIn profile URL)",
         func: async () => {
           const result = await mcpService.getLinkedinUrl();
           return result.url;
@@ -131,7 +210,7 @@ class LLMService {
       }),
       new DynamicTool({
         name: "mcp__candidate__get_github_url",
-        description: "Get the candidate's GitHub profile URL",
+        description: "获取候选人的GitHub链接 (Get the candidate's GitHub profile URL)",
         func: async () => {
           const result = await mcpService.getGithubUrl();
           return result.url;
@@ -139,7 +218,7 @@ class LLMService {
       }),
       new DynamicTool({
         name: "mcp__candidate__get_website_url",
-        description: "Get the candidate's personal website URL",
+        description: "获取候选人的个人网站链接 (Get the candidate's personal website URL)",
         func: async () => {
           const result = await mcpService.getWebsiteUrl();
           return result.url;
