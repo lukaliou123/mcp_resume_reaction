@@ -158,7 +158,11 @@ ai-candidate-bff/
 │   └── services/            # 服务层
 ├── config/                  # 配置文件
 ├── public/                  # 静态文件
-├── scripts/                 # 部署脚本
+├── scripts/                 # 脚本目录
+│   ├── tests/               # 测试脚本集合
+│   ├── deploy-check.sh      # 部署检查
+│   ├── start-production.sh  # 生产启动
+│   └── verify-deployment.sh # 部署验证
 └── docs/                    # 文档
 ```
 
@@ -169,6 +173,24 @@ npm run dev          # 开发模式
 npm run start        # 生产模式启动
 npm run start:prod   # 生产环境启动
 npm run health-check # 健康检查
+```
+
+### 测试脚本
+
+所有测试和调试脚本已移动到 `scripts/tests/` 目录，详见 [scripts/tests/README.md](./scripts/tests/README.md)：
+
+```bash
+# 快速验证
+node scripts/tests/quick-status-check.js
+node scripts/tests/test-live-query.js
+
+# 深度调试
+node scripts/tests/debug-tool-selection.js
+node scripts/tests/test-mcp-tools-step-by-step.js
+
+# 环境验证
+node scripts/tests/test-env-vars.js
+node scripts/tests/test-openai.js
 ```
 
 ### 更新候选人信息

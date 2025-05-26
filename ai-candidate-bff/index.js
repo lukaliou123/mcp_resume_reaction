@@ -6,6 +6,7 @@ const bodyParser = require('body-parser');
 const path = require('path');
 const mcpService = require('./src/services/mcpService');
 const llmService = require('./llmService');
+const chatHistoryService = require('./src/services/chatHistoryService');
 
 // 初始化Express应用
 const app = express();
@@ -97,20 +98,78 @@ app.get('/test-mcp/:resource', async (req, res) => {
 // 聊天API端点 - 使用LLM服务
 app.post('/chat', async (req, res) => {
   try {
-    const { message } = req.body;
+    const { message, sessionId } = req.body;
     
     if (!message) {
       return res.status(400).json({ error: 'Message is required' });
     }
     
-    // 使用LLM服务处理查询
-    console.log(`接收到聊天请求: ${message}`);
-    const response = await llmService.processQuery(message);
+    // 生成或使用提供的会话ID
+    const currentSessionId = sessionId || `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     
-    res.status(200).json(response);
+    // 使用LLM服务处理查询
+    console.log(`接收到聊天请求: ${message} (Session: ${currentSessionId})`);
+    const response = await llmService.processQuery(message, currentSessionId);
+    
+    // 返回响应和会话ID
+    res.status(200).json({
+      ...response,
+      sessionId: currentSessionId
+    });
   } catch (error) {
     console.error('Error in chat endpoint:', error);
     res.status(500).json({ error: 'Internal server error', message: error.message });
+  }
+});
+
+// 对话历史管理API
+app.get('/chat/history/:sessionId', async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    const history = await chatHistoryService.getHistory(sessionId);
+    
+    res.status(200).json({
+      sessionId,
+      history,
+      count: history.length
+    });
+  } catch (error) {
+    console.error('Error getting chat history:', error);
+    res.status(500).json({ error: 'Failed to get chat history', message: error.message });
+  }
+});
+
+app.delete('/chat/history/:sessionId', async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    await chatHistoryService.clearHistory(sessionId);
+    
+    res.status(200).json({
+      message: 'Chat history cleared successfully',
+      sessionId
+    });
+  } catch (error) {
+    console.error('Error clearing chat history:', error);
+    res.status(500).json({ error: 'Failed to clear chat history', message: error.message });
+  }
+});
+
+// 对话历史统计API
+app.get('/chat/stats', async (req, res) => {
+  try {
+    const stats = chatHistoryService.storage.getStats ? 
+      chatHistoryService.storage.getStats() : 
+      { message: 'Stats not available for current storage type' };
+    
+    res.status(200).json({
+      ...stats,
+      storageType: chatHistoryService.storageType,
+      maxMessages: chatHistoryService.maxMessages,
+      sessionTimeout: chatHistoryService.sessionTimeout
+    });
+  } catch (error) {
+    console.error('Error getting chat stats:', error);
+    res.status(500).json({ error: 'Failed to get chat stats', message: error.message });
   }
 });
 

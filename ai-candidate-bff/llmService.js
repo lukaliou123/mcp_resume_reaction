@@ -3,6 +3,7 @@ const { createReactAgent } = require("@langchain/langgraph/prebuilt");
 const { CallbackHandler } = require("langfuse-langchain");
 const { DynamicTool } = require("@langchain/core/tools");
 const mcpService = require('./src/services/mcpService');
+const chatHistoryService = require('./src/services/chatHistoryService');
 
 const SYSTEM_PROMPT = `你是一个专业的招聘助手，负责为用户介绍和解答关于候选人"陈嘉旭"的各类信息。你可以调用多种工具获取候选人的简历、教育背景、工作经历、项目经验、技能特长、社交媒体链接等结构化数据。
 你的目标是：
@@ -34,13 +35,16 @@ const SYSTEM_PROMPT = `你是一个专业的招聘助手，负责为用户介绍
 - get_resume_text：获取完整简历（仅在需要全面信息时使用）
 
 【工具选择策略】：
-- 用户问"教育背景"、"学历"时 → 使用 get_education_background
-- 用户问"工作经历"、"职业经验"时 → 使用 get_work_experience  
-- 用户问"项目经验"时 → 使用 get_personal_projects 和 get_work_projects
-- 用户问"技能"、"技术能力"时 → 使用 get_skills
-- 用户问"基本信息"、"联系方式"时 → 使用 get_basic_info
-- 用户问"其他经历"时 → 使用 get_other_experience
-- 用户需要全面了解时 → 组合使用多个细化工具
+⚠️ 重要：优先使用细化工具，避免使用get_resume_text！
+- 用户问"教育背景"、"学历"时 → 必须使用 get_education_background
+- 用户问"工作经历"、"职业经验"时 → 必须使用 get_work_experience  
+- 用户问"个人项目"时 → 必须使用 get_personal_projects
+- 用户问"工作项目"时 → 必须使用 get_work_projects
+- 用户问"项目经验"时 → 必须使用 get_personal_projects 和 get_work_projects
+- 用户问"技能"、"技术能力"时 → 必须使用 get_skills
+- 用户问"基本信息"、"联系方式"时 → 必须使用 get_basic_info
+- 用户问"其他经历"、"非IT经验"时 → 必须使用 get_other_experience
+- 只有在用户明确要求"完整简历"时才使用 get_resume_text
 
 请始终以专业、友好、可信赖的语气作答。`;
 
@@ -227,7 +231,7 @@ class LLMService {
     ];
   }
 
-  async processQuery(userMessage) {
+  async processQuery(userMessage, sessionId = 'default') {
     if (!this.agent) {
       await new Promise(resolve => {
         const checkAgent = () => {
@@ -239,17 +243,31 @@ class LLMService {
     }
 
     try {
+      // 获取对话历史
+      const chatHistory = await chatHistoryService.getFormattedHistory(sessionId);
+      
+      // 构建完整的消息数组
+      const messages = [
+        { role: "system", content: SYSTEM_PROMPT },
+        ...chatHistory,
+        { role: "user", content: userMessage }
+      ];
+
+      console.log(`💬 Processing query with ${chatHistory.length} history messages for session: ${sessionId}`);
+
+      // 保存用户消息到历史
+      await chatHistoryService.addMessage(sessionId, 'user', userMessage);
+
       // 为每个查询创建一个新的 trace
       const result = await this.agent.invoke({
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          { role: "user", content: userMessage }
-        ],
+        messages: messages,
       }, {
         // 添加 LangFuse 回调配置
         callbacks: [this.langfuseHandler],
         metadata: {
           user_query: userMessage,
+          session_id: sessionId,
+          history_length: chatHistory.length,
           timestamp: new Date().toISOString(),
           service: "ai-candidate-bff",
           mode: "integrated-mcp",
@@ -271,6 +289,9 @@ class LLMService {
       } else if (result.output || result.text) {
         finalText = result.output || result.text;
       }
+
+      // 保存AI回复到历史
+      await chatHistoryService.addMessage(sessionId, 'assistant', finalText);
     
       return { text: finalText };
     } catch (error) {

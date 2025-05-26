@@ -276,6 +276,48 @@
             box-shadow: 0 1px 2px rgba(0,0,0,0.05);
         }
 
+        /* 对话历史控制 */
+        .chat-controls {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+            padding: 0.5rem;
+            background-color: #f8f9fa;
+            border-radius: var(--border-radius);
+            border: 1px solid #e9ecef;
+        }
+
+        .control-btn {
+            padding: 0.4rem 0.8rem;
+            background-color: #6c757d;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            font-weight: 500;
+            transition: background-color 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 0.3rem;
+        }
+
+        .control-btn:hover {
+            background-color: #5a6268;
+        }
+
+        .control-btn i {
+            margin: 0;
+        }
+
+        .session-info {
+            margin-left: auto;
+            font-size: 0.8rem;
+            color: #6c757d;
+            font-weight: 500;
+        }
+
         /* 滚动到底部按钮 */
         .scroll-bottom {
             position: absolute;
@@ -542,6 +584,16 @@
             <button class="quick-question-btn">教育背景</button>
         </div>
         
+        <div class="chat-controls">
+            <button class="control-btn" id="clear-history-btn" title="清除对话历史">
+                <i class="fas fa-trash"></i> 清除历史
+            </button>
+            <button class="control-btn" id="new-session-btn" title="开始新对话">
+                <i class="fas fa-plus"></i> 新对话
+            </button>
+            <span class="session-info" id="session-info">会话: 未开始</span>
+        </div>
+        
         <div class="input-container">
             <input type="text" id="message-input" placeholder="请输入您的问题..." autofocus>
             <button id="send-button">
@@ -560,6 +612,10 @@
         const messageInput = document.getElementById('message-input');
         const sendButton = document.getElementById('send-button');
 
+        // 会话管理变量 - 必须在函数定义之前声明
+        let currentSessionId = localStorage.getItem('chatSessionId') || null;
+        let lastUserMessage = '';
+
         // 设置当前时间
         function setCurrentTime() {
             const now = new Date();
@@ -567,6 +623,9 @@
             document.getElementById('current-time').textContent = timeStr;
         }
         setCurrentTime();
+
+        // 初始化会话信息
+        updateSessionInfo();
 
         // 添加消息到聊天窗口
         function addMessage(text, isUser) {
@@ -702,8 +761,69 @@
             return retryButton;
         }
 
+        // 会话管理变量已在上方声明
+
+        // 更新会话信息显示
+        function updateSessionInfo() {
+            const sessionInfo = document.getElementById('session-info');
+            if (currentSessionId) {
+                const shortId = currentSessionId.substring(currentSessionId.length - 8);
+                sessionInfo.textContent = `会话: ${shortId}`;
+            } else {
+                sessionInfo.textContent = '会话: 未开始';
+            }
+        }
+
+        // 清除对话历史
+        async function clearChatHistory() {
+            if (!currentSessionId) {
+                alert('当前没有活跃的对话会话');
+                return;
+            }
+
+            if (!confirm('确定要清除当前对话历史吗？此操作不可撤销。')) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/chat/history/${currentSessionId}`, {
+                    method: 'DELETE'
+                });
+
+                if (response.ok) {
+                    // 清除前端显示的消息
+                    chatContainer.innerHTML = '';
+                    
+                    // 添加欢迎消息
+                    addMessage('对话历史已清除，您可以开始新的对话了！', false);
+                    
+                    alert('对话历史已成功清除');
+                } else {
+                    throw new Error('清除历史失败');
+                }
+            } catch (error) {
+                console.error('Error clearing chat history:', error);
+                alert('清除对话历史时发生错误');
+            }
+        }
+
+        // 开始新对话
+        function startNewSession() {
+            // 清除当前会话ID
+            currentSessionId = null;
+            localStorage.removeItem('chatSessionId');
+            
+            // 清除前端显示的消息
+            chatContainer.innerHTML = '';
+            
+            // 更新会话信息
+            updateSessionInfo();
+            
+            // 添加欢迎消息
+            addMessage('欢迎！我是AI候选人信息助手，请问您想了解候选人的哪些信息？', false);
+        }
+
         // 修改sendMessage以保存消息并分离出实际的服务器请求
-        let lastUserMessage = '';
         async function sendMessage() {
             const message = messageInput.value.trim();
             if (!message) return;
@@ -722,13 +842,16 @@
             const loadingMessageWrapper = addLoadingMessage();
             
             try {
-                // 发送请求到服务器
+                // 发送请求到服务器，包含会话ID
                 const response = await fetch('/chat', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json'
                     },
-                    body: JSON.stringify({ message: messageText })
+                    body: JSON.stringify({ 
+                        message: messageText,
+                        sessionId: currentSessionId 
+                    })
                 });
                 
                 if (!response.ok) {
@@ -736,6 +859,12 @@
                 }
                 
                 const data = await response.json();
+                
+                // 保存会话ID
+                if (data.sessionId) {
+                    currentSessionId = data.sessionId;
+                    localStorage.setItem('chatSessionId', currentSessionId);
+                }
                 
                 // 移除加载中消息
                 loadingMessageWrapper.remove();
@@ -773,6 +902,10 @@
                 sendMessage();
             }
         });
+
+        // 对话历史控制按钮事件
+        document.getElementById('clear-history-btn').addEventListener('click', clearChatHistory);
+        document.getElementById('new-session-btn').addEventListener('click', startNewSession);
 
         // 快速问题按钮
         const quickQuestions = document.getElementById('quick-questions');
