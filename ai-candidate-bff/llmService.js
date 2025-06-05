@@ -4,6 +4,7 @@ const { CallbackHandler } = require("langfuse-langchain");
 const { DynamicTool } = require("@langchain/core/tools");
 const mcpService = require('./src/services/mcpService');
 const chatHistoryService = require('./src/services/chatHistoryService');
+const githubMCPService = require('./src/services/githubMCPService');
 
 const SYSTEM_PROMPT = `你是一个专业的招聘助手，负责为用户介绍和解答关于候选人"陈嘉旭"的各类信息。你可以调用多种工具获取候选人的简历、教育背景、工作经历、项目经验、技能特长、社交媒体链接等结构化数据。
 你的目标是：
@@ -34,8 +35,15 @@ const SYSTEM_PROMPT = `你是一个专业的招聘助手，负责为用户介绍
 备用工具：
 - get_resume_text：获取完整简历（仅在需要全面信息时使用）
 
+GitHub项目分析工具：
+- mcp__github__analyze_repository：深度分析GitHub仓库架构、技术栈、代码质量
+- mcp__github__get_repository_info：获取GitHub仓库基本信息
+- mcp__github__get_file_content：获取仓库中特定文件内容
+
 【工具选择策略】：
 ⚠️ 重要：优先使用细化工具，避免使用get_resume_text！
+
+基础信息查询：
 - 用户问"教育背景"、"学历"时 → 必须使用 get_education_background
 - 用户问"工作经历"、"职业经验"时 → 必须使用 get_work_experience  
 - 用户问"个人项目"时 → 必须使用 get_personal_projects
@@ -45,6 +53,18 @@ const SYSTEM_PROMPT = `你是一个专业的招聘助手，负责为用户介绍
 - 用户问"基本信息"、"联系方式"时 → 必须使用 get_basic_info
 - 用户问"其他经历"、"非IT经验"时 → 必须使用 get_other_experience
 - 只有在用户明确要求"完整简历"时才使用 get_resume_text
+
+GitHub项目深度分析：
+- 用户询问"详细了解某个项目"、"项目架构"、"技术实现"时 → 首先使用 get_personal_projects 获取项目列表，然后使用 mcp__github__analyze_repository 分析具体GitHub仓库
+- 用户问"项目代码"、"仓库分析"、"技术栈详情"时 → 使用 mcp__github__analyze_repository
+- 用户问"README"、"文档"、"具体文件"时 → 使用 mcp__github__get_file_content
+- 用户问"项目基本信息"、"仓库状态"时 → 使用 mcp__github__get_repository_info
+
+🔄 智能分析流程：
+当用户表达想要"深入了解某个项目"时，按以下步骤执行：
+1. 使用 get_personal_projects 获取项目列表和GitHub链接
+2. 使用 mcp__github__analyze_repository 深度分析目标仓库
+3. 基于分析结果，生成详细的项目报告和建议后续问题
 
 请始终以专业、友好、可信赖的语气作答。`;
 
@@ -226,6 +246,90 @@ class LLMService {
         func: async () => {
           const result = await mcpService.getWebsiteUrl();
           return result.url;
+        },
+      }),
+      
+      // GitHub项目分析工具
+      new DynamicTool({
+        name: "mcp__github__analyze_repository",
+        description: "深度分析GitHub仓库的架构、技术栈、代码质量等。需要提供GitHub仓库URL。(Analyze GitHub repository architecture, tech stack, and code quality. Requires GitHub repository URL)",
+        func: async (githubUrl) => {
+          if (!(await githubMCPService.isAvailable())) {
+            return JSON.stringify({
+              error: "GitHub分析功能未启用或未配置GitHub Token",
+              message: "请联系管理员配置GitHub Personal Access Token"
+            });
+          }
+          
+          try {
+            const analysis = await githubMCPService.analyzeRepository(githubUrl);
+            return JSON.stringify(analysis);
+          } catch (error) {
+            return JSON.stringify({
+              error: "GitHub仓库分析失败",
+              message: error.message,
+              url: githubUrl
+            });
+          }
+        },
+      }),
+      
+      new DynamicTool({
+        name: "mcp__github__get_repository_info",
+        description: "获取GitHub仓库的基本信息，包括描述、语言、星数、更新时间等。(Get basic GitHub repository information including description, language, stars, update time)",
+        func: async (githubUrl) => {
+          if (!(await githubMCPService.isAvailable())) {
+            return JSON.stringify({
+              error: "GitHub功能未启用",
+              message: "请联系管理员配置GitHub功能"
+            });
+          }
+          
+          try {
+            const repoInfo = await githubMCPService.getRepositoryInfo(githubUrl);
+            return JSON.stringify(repoInfo);
+          } catch (error) {
+            return JSON.stringify({
+              error: "获取仓库信息失败",
+              message: error.message,
+              url: githubUrl
+            });
+          }
+        },
+      }),
+      
+      new DynamicTool({
+        name: "mcp__github__get_file_content",
+        description: "获取GitHub仓库中特定文件的内容，如README.md、package.json等。需要提供仓库URL和文件路径。(Get specific file content from GitHub repository like README.md, package.json. Requires repo URL and file path)",
+        func: async (githubUrl, filePath = 'README.md') => {
+          if (!(await githubMCPService.isAvailable())) {
+            return JSON.stringify({
+              error: "GitHub功能未启用",
+              message: "请联系管理员配置GitHub功能"
+            });
+          }
+          
+          try {
+            // 解析参数：如果githubUrl包含逗号，则分割为URL和文件路径
+            let actualUrl = githubUrl;
+            let actualPath = filePath;
+            
+            if (githubUrl.includes(',')) {
+              const parts = githubUrl.split(',');
+              actualUrl = parts[0].trim();
+              actualPath = parts[1]?.trim() || 'README.md';
+            }
+            
+            const fileContent = await githubMCPService.getFileContent(actualUrl, actualPath);
+            return JSON.stringify(fileContent);
+          } catch (error) {
+            return JSON.stringify({
+              error: "获取文件内容失败",
+              message: error.message,
+              url: githubUrl,
+              path: filePath
+            });
+          }
         },
       }),
     ];
