@@ -200,6 +200,30 @@ app.get('/github/cache/stats', async (req, res) => {
   }
 });
 
+// 上下文感知统计API
+app.get('/context/stats', async (req, res) => {
+  try {
+    const llmService = require('./llmService');
+    
+    if (llmService && llmService.contextService) {
+      const contextStats = llmService.contextService.getStats();
+      res.status(200).json({
+        contextStats,
+        timestamp: new Date().toISOString(),
+        status: 'active'
+      });
+    } else {
+      res.status(503).json({ 
+        error: 'Context service not available',
+        status: 'inactive'
+      });
+    }
+  } catch (error) {
+    console.error('Error getting context stats:', error);
+    res.status(500).json({ error: 'Failed to get context stats', message: error.message });
+  }
+});
+
 // 根路径重定向到index.html
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));

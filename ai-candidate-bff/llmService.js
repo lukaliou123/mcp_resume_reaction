@@ -5,6 +5,7 @@ const { DynamicTool } = require("@langchain/core/tools");
 const mcpService = require('./src/services/mcpService');
 const chatHistoryService = require('./src/services/chatHistoryService');
 const githubMCPService = require('./src/services/githubMCPService');
+const ConversationContextService = require('./src/services/conversationContextService');
 
 const SYSTEM_PROMPT = `你是一个专业的招聘助手，负责为用户介绍和解答关于候选人"陈嘉旭"的各类信息。你可以调用多种工具获取候选人的简历、教育背景、工作经历、项目经验、技能特长、社交媒体链接等结构化数据。
 你的目标是：
@@ -87,6 +88,7 @@ class LLMService {
   constructor() {
     this.agent = null;
     this.langfuseHandler = null;
+    this.contextService = new ConversationContextService();
     this._initAgent();
   }
 
@@ -104,7 +106,7 @@ class LLMService {
       baseUrl: process.env.LANGFUSE_BASE_URL || 'Not set'
     });
 
-    // 创建集成的MCP工具
+    // 创建基础的MCP工具（不包含sessionId）
     this.tools = this._createIntegratedMCPTools();
     console.log("Loaded integrated MCP tools:", this.tools.map(t => t.name));
     
@@ -162,7 +164,7 @@ class LLMService {
   }
 
   // 创建集成的MCP工具
-  _createIntegratedMCPTools() {
+  _createIntegratedMCPTools(sessionId = null) {
     return [
       // 细化的简历信息工具
       new DynamicTool({
@@ -278,6 +280,13 @@ class LLMService {
           
           try {
             const analysis = await githubMCPService.analyzeRepository(githubUrl);
+            
+            // 🧠 自动存储分析结果到上下文中
+            if (sessionId && this.contextService) {
+              await this.contextService.storeGitHubAnalysisResult(sessionId, githubUrl, analysis);
+              console.log(`🧠 Stored analysis result for ${analysis.repository_info?.name} in session ${sessionId}`);
+            }
+            
             return JSON.stringify(analysis);
           } catch (error) {
             return JSON.stringify({
@@ -518,23 +527,56 @@ AI完整回复：${aiResponse}
     }
 
     try {
+      // 🧠 增强上下文感知：检查是否有GitHub分析上下文
+      const contextInfo = await this.contextService.enhanceWithGitHubContext(userMessage, sessionId);
+      
       // 获取对话历史
       const chatHistory = await chatHistoryService.getFormattedHistory(sessionId);
       
+      // 增强系统提示词，包含上下文信息
+      let enhancedSystemPrompt = SYSTEM_PROMPT;
+      if (contextInfo.hasContext) {
+        enhancedSystemPrompt += `\n\n🧠 当前会话上下文：
+${contextInfo.contextSummary || ''}
+
+${contextInfo.relevantProjects && contextInfo.relevantProjects.length > 0 ? 
+  '相关项目上下文：\n' + contextInfo.relevantProjects.map(p => 
+    `- ${p.projectName} (${p.language}): ${p.keyInfo?.type || 'Unknown type'}`
+  ).join('\n') : ''}
+
+📝 重要提示：
+- 你可以基于上述GitHub分析结果回答更深入的技术问题
+- 如果用户询问相关项目的具体实现、架构设计等，直接使用已有的分析数据
+- 鼓励用户深入探讨已分析项目的技术细节`;
+      }
+      
       // 构建完整的消息数组
       const messages = [
-        { role: "system", content: SYSTEM_PROMPT },
+        { role: "system", content: enhancedSystemPrompt },
         ...chatHistory,
         { role: "user", content: userMessage }
       ];
 
       console.log(`💬 Processing query with ${chatHistory.length} history messages for session: ${sessionId}`);
+      console.log(`🧠 Context info:`, {
+        hasContext: contextInfo.hasContext,
+        relevantProjects: contextInfo.relevantProjects?.length || 0
+      });
 
       // 保存用户消息到历史
       await chatHistoryService.addMessage(sessionId, 'user', userMessage);
 
+      // 🧠 为当前会话创建带有上下文感知的工具
+      const sessionAwareTools = this._createIntegratedMCPTools(sessionId);
+      
+      // 创建临时的会话感知agent
+      const sessionAgent = createReactAgent({
+        llm: this.model,
+        tools: sessionAwareTools,
+      });
+
       // 为每个查询创建一个新的 trace
-      const result = await this.agent.invoke({
+      const result = await sessionAgent.invoke({
         messages: messages,
       }, {
         // 添加 LangFuse 回调配置
@@ -568,13 +610,25 @@ AI完整回复：${aiResponse}
       // 保存AI回复到历史
       await chatHistoryService.addMessage(sessionId, 'assistant', finalText);
 
-      // 生成对话建议（并行处理以提高性能）
-      console.log("🎯 Generating conversation suggestions...");
-      const suggestions = await this.generateSuggestions(
-        chatHistory,
-        finalText,
-        userMessage
-      );
+      // 🧠 生成基于上下文的对话建议
+      console.log("🎯 Generating context-aware conversation suggestions...");
+      let suggestions;
+      
+      // 如果有GitHub分析上下文，优先生成上下文相关建议
+      if (contextInfo.hasContext && contextInfo.relevantProjects && contextInfo.relevantProjects.length > 0) {
+        const contextualSuggestions = this.contextService.generateContextualSuggestions(
+          contextInfo.relevantProjects[0].analysisResult
+        );
+        suggestions = { suggestions: contextualSuggestions };
+        console.log("🧠 Generated contextual suggestions based on GitHub analysis");
+      } else {
+        // 使用传统方法生成建议
+        suggestions = await this.generateSuggestions(
+          chatHistory,
+          finalText,
+          userMessage
+        );
+      }
     
       return { 
         text: finalText,
