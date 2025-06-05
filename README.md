@@ -12,6 +12,20 @@
 *   AI 助手整合从 MCP Server 获取的信息，并以自然语言的形式在聊天界面回复用户。
 *   初期支持查询的候选人信息范围包括但不限于：姓名、简历文本、简历链接、GitHub 个人资料链接、LinkedIn 个人资料链接、个人网站链接等。
 
+### 🚀 GitHub项目深度分析功能
+
+*   **智能GitHub项目分析**: 支持深度分析GitHub仓库的架构、技术栈、代码质量等。
+*   **智能URL处理**: 自动识别用户主页和仓库URL，提供相应的分析结果。
+*   **项目展示增强**: AI介绍个人项目时自动显示GitHub链接，引导用户深入了解。
+*   **智能建议问题**: 自动生成GitHub分析相关的后续问题，提升用户体验。
+
+### 🔄 智能交互闭环
+
+1. **项目介绍** → AI展示项目信息及GitHub链接
+2. **链接展示** → 格式化显示：`📋 **GitHub仓库**: [项目名称](链接)`
+3. **智能建议** → 自动生成："能分析一下XX项目的Github库里的内容吗？"
+4. **深度分析** → 用户点击触发GitHub仓库深度分析功能
+
 ## 3. 系统架构图
 
 ```
@@ -57,6 +71,10 @@
     *   通信方式 (BFF 与 MCP Server)：
         *   初期：通过子进程启动 `examples/stdio.ts` (或其编译后的 `.js` 文件)，使用 STDIN/STDOUT 进行 JSON-RPC 通信。
         *   未来：考虑将 MCP Server 改造为 HTTP 服务，使用 `@modelcontextprotocol/sdk` 中的 `StreamableHTTPServerTransport`。
+*   **GitHub分析服务:**
+    *   GitHub API集成：使用 `@octokit/rest` 进行GitHub API交互
+    *   缓存服务：GitHubCacheService，支持内存和文件缓存
+    *   分析功能：仓库信息获取、技术栈分析、代码结构解析、语言统计等
 
 ## 5. 详细流程设计
 
@@ -76,6 +94,22 @@
     *   OpenAI API 根据这些信息生成一段自然的、针对用户问题的回复。
 7.  **响应返回:** BFF 将 AI 生成的回复发送回前端。
 8.  **前端展示:** 前端页面将 AI 的回复展示给用户。
+
+### 🔍 GitHub项目分析流程 (新增)
+
+1.  **项目信息展示**: 当用户询问个人项目时，AI回复中自动包含GitHub链接。
+2.  **智能建议生成**: 系统检测到GitHub链接后，自动生成"能分析一下XX项目的Github库里的内容吗？"建议问题。
+3.  **GitHub分析触发**: 用户点击建议问题或直接发送GitHub链接。
+4.  **仓库信息获取**: 
+    *   调用GitHub API获取仓库基本信息（描述、语言、星数等）
+    *   分析仓库目录结构和文件类型
+    *   提取技术栈信息（框架、构建工具、配置文件等）
+5.  **深度分析**: 
+    *   生成技术栈总结和复杂度评估
+    *   分析项目类型和开发状态
+    *   提供关键亮点和改进建议
+6.  **结果缓存**: 分析结果缓存到本地，提升后续查询速度。
+7.  **智能回复**: AI基于分析结果生成详细的项目技术报告。
 
 **Prompt 设计思路 (初步):**
 
@@ -108,6 +142,15 @@
     *   `get_resume_url`: (功能上与读取资源 `candidate-info://resume-url` 类似)
     *   ... (可以查看 `stdio.ts` 或 MCP Server 内部注册了哪些工具)
 
+### 🔧 GitHub分析工具 (新增)
+
+*   **GitHub项目分析工具:**
+    *   `mcp__github__analyze_repository`: 深度分析GitHub仓库架构、技术栈、代码质量
+    *   `mcp__github__get_repository_info`: 获取GitHub仓库基本信息
+    *   `mcp__github__get_file_content`: 获取仓库中特定文件内容
+    *   `mcp__github__handle_url`: 智能处理GitHub URL，支持用户主页和仓库URL
+    *   `mcp__github__get_user_repositories`: 获取GitHub用户的公开仓库列表
+
 *(注意：具体可用的工具和资源需要以 `stdio.ts` 实际运行时注册到 MCP Server 实例为准。)*
 
 ## 7. 开发步骤与里程碑 (初步)
@@ -134,7 +177,12 @@
 6.  **【Frontend】开发简单前端页面进行联调:**
     *   创建简单的 HTML 页面，包含输入框和聊天显示区域。
     *   实现将用户输入发送到 BFF `/chat` 接口，并展示返回的 AI 回复。
-7.  **【ALL】端到端测试和迭代优化。**
+7.  **【BFF & GitHub】集成GitHub分析功能 (新增):**
+    *   配置GitHub Personal Access Token环境变量。
+    *   集成GitHubMCPService，实现仓库信息获取和技术栈分析。
+    *   添加GitHub分析相关的LangChain工具。
+    *   实现智能建议问题生成，优先推荐GitHub分析功能。
+8.  **【ALL】端到端测试和迭代优化。**
 
 ## 8. (可选) 部署方案初步考虑
 

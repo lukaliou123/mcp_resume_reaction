@@ -4,8 +4,9 @@ const { CallbackHandler } = require("langfuse-langchain");
 const { DynamicTool } = require("@langchain/core/tools");
 const mcpService = require('./src/services/mcpService');
 const chatHistoryService = require('./src/services/chatHistoryService');
-const githubMCPService = require('./src/services/githubMCPService');
+const GitHubMCPService = require('./src/services/githubMCPService');
 const ConversationContextService = require('./src/services/conversationContextService');
+const ToolCallMonitorService = require('./src/services/toolCallMonitorService');
 
 const SYSTEM_PROMPT = `你是一个专业的招聘助手，负责为用户介绍和解答关于候选人"陈嘉旭"的各类信息。你可以调用多种工具获取候选人的简历、教育背景、工作经历、项目经验、技能特长、社交媒体链接等结构化数据。
 你的目标是：
@@ -57,6 +58,11 @@ GitHub项目分析工具：
 - 用户问"其他经历"、"非IT经验"时 → 必须使用 get_other_experience
 - 只有在用户明确要求"完整简历"时才使用 get_resume_text
 
+🔗 个人项目展示策略：
+当回答个人项目相关问题时，**必须遵循以下格式**：
+1. 项目介绍后，主动显示GitHub链接：📋 **GitHub仓库**: [项目名称](GitHub链接)
+2. 在回答末尾添加友好提示：💡 **想深入了解项目代码和架构？** 您可以直接发送GitHub链接给我，我可以帮您分析项目的技术实现、代码结构和架构设计！
+
 GitHub项目深度分析：
 ⚠️ 重要：对于任何GitHub URL，优先使用智能处理工具！
 
@@ -89,6 +95,8 @@ class LLMService {
     this.agent = null;
     this.langfuseHandler = null;
     this.contextService = new ConversationContextService();
+    this.monitorService = new ToolCallMonitorService();
+    this.githubMCPService = new GitHubMCPService();
     this._initAgent();
   }
 
@@ -271,7 +279,7 @@ class LLMService {
         name: "mcp__github__analyze_repository",
         description: "深度分析GitHub仓库的架构、技术栈、代码质量等。需要提供GitHub仓库URL。(Analyze GitHub repository architecture, tech stack, and code quality. Requires GitHub repository URL)",
         func: async (githubUrl) => {
-          if (!(await githubMCPService.isAvailable())) {
+          if (!(await this.githubMCPService.isAvailable())) {
             return JSON.stringify({
               error: "GitHub分析功能未启用或未配置GitHub Token",
               message: "请联系管理员配置GitHub Personal Access Token"
@@ -279,7 +287,7 @@ class LLMService {
           }
           
           try {
-            const analysis = await githubMCPService.analyzeRepository(githubUrl);
+            const analysis = await this.githubMCPService.analyzeRepository(githubUrl);
             
             // 🧠 自动存储分析结果到上下文中
             if (sessionId && this.contextService) {
@@ -302,7 +310,7 @@ class LLMService {
         name: "mcp__github__get_repository_info",
         description: "获取GitHub仓库的基本信息，包括描述、语言、星数、更新时间等。(Get basic GitHub repository information including description, language, stars, update time)",
         func: async (githubUrl) => {
-          if (!(await githubMCPService.isAvailable())) {
+          if (!(await this.githubMCPService.isAvailable())) {
             return JSON.stringify({
               error: "GitHub功能未启用",
               message: "请联系管理员配置GitHub功能"
@@ -310,7 +318,7 @@ class LLMService {
           }
           
           try {
-            const repoInfo = await githubMCPService.getRepositoryInfo(githubUrl);
+            const repoInfo = await this.githubMCPService.getRepositoryInfo(githubUrl);
             return JSON.stringify(repoInfo);
           } catch (error) {
             return JSON.stringify({
@@ -326,7 +334,7 @@ class LLMService {
         name: "mcp__github__get_file_content",
         description: "获取GitHub仓库中特定文件的内容，如README.md、package.json等。需要提供仓库URL和文件路径。(Get specific file content from GitHub repository like README.md, package.json. Requires repo URL and file path)",
         func: async (githubUrl, filePath = 'README.md') => {
-          if (!(await githubMCPService.isAvailable())) {
+          if (!(await this.githubMCPService.isAvailable())) {
             return JSON.stringify({
               error: "GitHub功能未启用",
               message: "请联系管理员配置GitHub功能"
@@ -344,7 +352,7 @@ class LLMService {
               actualPath = parts[1]?.trim() || 'README.md';
             }
             
-            const fileContent = await githubMCPService.getFileContent(actualUrl, actualPath);
+            const fileContent = await this.githubMCPService.getFileContent(actualUrl, actualPath);
             return JSON.stringify(fileContent);
           } catch (error) {
             return JSON.stringify({
@@ -362,7 +370,7 @@ class LLMService {
         name: "mcp__github__handle_url",
         description: "智能处理GitHub URL，支持用户主页和仓库URL。用户主页将返回仓库列表，仓库URL将返回仓库信息。(Intelligently handle GitHub URLs, supporting both user profiles and repository URLs)",
         func: async (githubUrl) => {
-          if (!(await githubMCPService.isAvailable())) {
+          if (!(await this.githubMCPService.isAvailable())) {
             return JSON.stringify({
               error: "GitHub功能未启用",
               message: "请联系管理员配置GitHub功能"
@@ -370,7 +378,7 @@ class LLMService {
           }
           
           try {
-            const result = await githubMCPService.handleGitHubUrl(githubUrl);
+            const result = await this.githubMCPService.handleGitHubUrl(githubUrl);
             return JSON.stringify(result);
           } catch (error) {
             return JSON.stringify({
@@ -387,7 +395,7 @@ class LLMService {
         name: "mcp__github__get_user_repositories",
         description: "获取GitHub用户的公开仓库列表，按星数排序。需要提供用户名。(Get GitHub user's public repositories sorted by stars. Requires username)",
         func: async (username) => {
-          if (!(await githubMCPService.isAvailable())) {
+          if (!(await this.githubMCPService.isAvailable())) {
             return JSON.stringify({
               error: "GitHub功能未启用",
               message: "请联系管理员配置GitHub功能"
@@ -395,7 +403,7 @@ class LLMService {
           }
           
           try {
-            const repos = await githubMCPService.getUserRepositories(username);
+            const repos = await this.githubMCPService.getUserRepositories(username);
             return JSON.stringify({
               username: username,
               repositories: repos,
@@ -413,6 +421,43 @@ class LLMService {
     ];
   }
 
+  // 创建带监控的工具
+  _createMonitoredTools(sessionId, userQuery) {
+    const toolsCalled = [];
+    const baseTools = this._createIntegratedMCPTools(sessionId);
+    
+    const monitoredTools = baseTools.map(tool => {
+      const originalFunc = tool.func;
+      
+      // 创建新的DynamicTool，保持完整的工具结构和invoke方法
+      return new DynamicTool({
+        name: tool.name,
+        description: tool.description,
+        func: async (...args) => {
+          console.log(`🔧 [Monitor] Tool Called: ${tool.name}`);
+          toolsCalled.push(tool.name);
+          
+          const toolStartTime = Date.now();
+          try {
+            const result = await originalFunc(...args);
+            const toolEndTime = Date.now();
+            console.log(`⏱️ [Monitor] Tool ${tool.name} completed in ${toolEndTime - toolStartTime}ms`);
+            return result;
+          } catch (error) {
+            const toolEndTime = Date.now();
+            console.error(`❌ [Monitor] Tool ${tool.name} failed after ${toolEndTime - toolStartTime}ms:`, error.message);
+            throw error;
+          }
+        }
+      });
+    });
+    
+    return {
+      tools: monitoredTools,
+      toolsCalled
+    };
+  }
+
   // 生成对话建议的方法
   async generateSuggestions(conversationContext, aiResponse, userMessage) {
     try {
@@ -428,11 +473,16 @@ AI完整回复：${aiResponse}
 2. 基于这些具体实体生成针对性的深入问题，引导用户探索细节
 3. 避免生成宽泛的通用问题，要针对具体内容提问
 4. 问题长度控制在15字以内，自然口语化
-5. 优先级：具体项目详情 > 技术实现细节 > 工作经历 > 通用问题
+5. 优先级：GitHub代码分析 > 具体项目详情 > 技术实现细节 > 工作经历 > 通用问题
 6. 避免重复已讨论的问题
 
+🔗 GitHub分析优先策略：
+- **最高优先级**：如果AI回复中包含GitHub链接或项目名称，必须优先生成GitHub分析问题
+- 格式："能分析一下[项目名称]的Github库里的内容吗？"
+- 示例：如果提到"AI候选人BFF系统"项目，应生成"能分析一下AI候选人BFF系统的Github库里的内容吗？"
+
 生成策略：
-- 如果提到具体项目名称，问项目的技术架构、难点、成果等
+- 如果提到具体项目名称且有GitHub链接，优先问GitHub代码分析
 - 如果提到技术栈，问具体的使用场景、优化经验等  
 - 如果提到工作经历，问具体职责、团队规模、业务成果等
 - 如果提到教育背景，问专业课程、实践项目等
@@ -441,10 +491,18 @@ AI完整回复：${aiResponse}
 {"suggestions": ["问题1", "问题2", "问题3"]}
 
 示例分析：
-如果AI回复提到"AI候选人BFF系统"、"MCP协议"、"OpenAI"，应该生成：
+如果AI回复提到"AI候选人BFF系统"项目（包含GitHub链接），应该优先生成：
+- "能分析一下AI候选人BFF系统的Github库里的内容吗？"
 - "MCP协议有什么优势？"
-- "系统架构是怎样的？"  
-- "支持哪些AI提供商？"
+- "系统架构是怎样的？"
+
+如果AI回复提到"Browser CoT"项目，应该生成：
+- "能分析一下Browser CoT的Github库里的内容吗？"
+- "思维链记录如何实现？"
+
+如果AI回复提到"旅游助手智能体"项目，应该生成：
+- "能分析一下旅游助手智能体的Github库里的内容吗？"
+- "RAG + ReAct架构如何设计？"
 
 而不是生成通用问题如"遇到什么挑战？"、"技术栈是什么？"
 `;
@@ -566,16 +624,17 @@ ${contextInfo.relevantProjects && contextInfo.relevantProjects.length > 0 ?
       // 保存用户消息到历史
       await chatHistoryService.addMessage(sessionId, 'user', userMessage);
 
-      // 🧠 为当前会话创建带有上下文感知的工具
-      const sessionAwareTools = this._createIntegratedMCPTools(sessionId);
+      // 🧠 为当前会话创建带有上下文感知和监控的工具
+      const monitoredTools = this._createMonitoredTools(sessionId, userMessage);
       
       // 创建临时的会话感知agent
       const sessionAgent = createReactAgent({
         llm: this.model,
-        tools: sessionAwareTools,
+        tools: monitoredTools.tools,
       });
 
       // 为每个查询创建一个新的 trace
+      const queryStartTime = Date.now();
       const result = await sessionAgent.invoke({
         messages: messages,
       }, {
@@ -590,6 +649,9 @@ ${contextInfo.relevantProjects && contextInfo.relevantProjects.length > 0 ?
           mode: "integrated-mcp",
         },
       });
+      
+      const queryEndTime = Date.now();
+      const queryDuration = queryEndTime - queryStartTime;
 
       console.log("Agent invoke result:", result);
     
@@ -629,6 +691,19 @@ ${contextInfo.relevantProjects && contextInfo.relevantProjects.length > 0 ?
           userMessage
         );
       }
+      
+      // 🔍 记录工具调用监控信息
+      this.monitorService.recordToolCall(
+        sessionId,
+        userMessage,
+        monitoredTools.toolsCalled,
+        queryDuration,
+        {
+          hasContext: contextInfo.hasContext,
+          relevantProjects: contextInfo.relevantProjects?.length || 0,
+          historyLength: chatHistory.length
+        }
+      );
     
       return { 
         text: finalText,
