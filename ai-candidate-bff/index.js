@@ -175,6 +175,31 @@ app.get('/chat/stats', async (req, res) => {
   }
 });
 
+// GitHub缓存统计API
+app.get('/github/cache/stats', async (req, res) => {
+  try {
+    const GitHubMCPService = require('./src/services/githubMCPService');
+    const githubService = new GitHubMCPService();
+    
+    if (githubService && githubService.cache) {
+      const cacheStats = githubService.cache.getStats();
+      res.status(200).json({
+        cacheStats,
+        timestamp: new Date().toISOString(),
+        status: 'active'
+      });
+    } else {
+      res.status(503).json({ 
+        error: 'GitHub cache service not available',
+        status: 'inactive'
+      });
+    }
+  } catch (error) {
+    console.error('Error getting GitHub cache stats:', error);
+    res.status(500).json({ error: 'Failed to get cache stats', message: error.message });
+  }
+});
+
 // 根路径重定向到index.html
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));

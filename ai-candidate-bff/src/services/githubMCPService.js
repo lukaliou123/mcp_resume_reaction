@@ -3,6 +3,8 @@
  * 负责与GitHub API交互，分析代码仓库结构和内容
  */
 
+const GitHubCacheService = require('./githubCacheService');
+
 class GitHubMCPService {
   constructor() {
     this.octokit = null;
@@ -11,6 +13,9 @@ class GitHubMCPService {
     this.timeout = parseInt(process.env.GITHUB_MCP_TIMEOUT) || 30000;
     this.maxConcurrentRequests = parseInt(process.env.GITHUB_MCP_MAX_CONCURRENT_REQUESTS) || 5;
     this.initPromise = null; // 用于确保只初始化一次
+    
+    // 初始化缓存服务
+    this.cache = new GitHubCacheService();
     
     if (this.isEnabled) {
       this.initPromise = this._initGitHubClient();
@@ -29,6 +34,12 @@ class GitHubMCPService {
   async _initGitHubClient() {
     try {
       const token = process.env.GITHUB_PERSONAL_ACCESS_TOKEN;
+      
+      console.log('🔑 GitHub token check:', {
+        tokenExists: !!token,
+        tokenLength: token ? token.length : 0,
+        tokenPrefix: token ? token.substring(0, 10) + '...' : 'none'
+      });
       
       if (!token || token === 'your_github_token_here') {
         console.warn('⚠️ GitHub Personal Access Token not configured');
@@ -161,6 +172,12 @@ class GitHubMCPService {
       throw new Error('GitHub MCP Service is not available');
     }
 
+    // 先尝试从缓存获取
+    const cached = await this.cache.get('repository_info', githubUrl);
+    if (cached) {
+      return cached;
+    }
+
     const parsed = this.parseGitHubUrl(githubUrl);
     if (!parsed) {
       throw new Error('Invalid GitHub URL format');
@@ -172,7 +189,7 @@ class GitHubMCPService {
         repo: parsed.repo,
       });
 
-      return {
+      const repoInfo = {
         name: repo.name,
         full_name: repo.full_name,
         description: repo.description,
@@ -188,6 +205,11 @@ class GitHubMCPService {
         default_branch: repo.default_branch,
         html_url: repo.html_url
       };
+
+      // 缓存结果
+      await this.cache.set('repository_info', githubUrl, repoInfo);
+      
+      return repoInfo;
     } catch (error) {
       console.error('Error fetching repository info:', error);
       throw new Error(`Failed to fetch repository information: ${error.message}`);
@@ -505,6 +527,13 @@ class GitHubMCPService {
    * @returns {Object} 完整的仓库分析结果
    */
   async analyzeRepository(githubUrl) {
+    // 先尝试从缓存获取
+    const cached = await this.cache.get('analysis_result', githubUrl);
+    if (cached) {
+      console.log(`🎯 Using cached analysis for: ${githubUrl}`);
+      return cached;
+    }
+
     try {
       console.log(`🔍 Starting comprehensive analysis for: ${githubUrl}`);
       
@@ -534,6 +563,9 @@ class GitHubMCPService {
         readme: readme,
         analysis_summary: this._generateAnalysisSummary(techStack, readme)
       };
+
+      // 缓存分析结果
+      await this.cache.set('analysis_result', githubUrl, analysis);
 
       console.log(`✅ Analysis completed for: ${techStack.repository.name}`);
       return analysis;
@@ -641,6 +673,12 @@ class GitHubMCPService {
       throw new Error('GitHub MCP Service is not available');
     }
 
+    // 先尝试从缓存获取
+    const cached = await this.cache.get('user_repositories', username);
+    if (cached) {
+      return cached;
+    }
+
     try {
       const { data: repos } = await this.octokit.rest.repos.listForUser({
         username: username,
@@ -649,7 +687,7 @@ class GitHubMCPService {
         per_page: 30
       });
 
-      return repos.map(repo => ({
+      const repoList = repos.map(repo => ({
         name: repo.name,
         full_name: repo.full_name,
         description: repo.description,
@@ -660,6 +698,11 @@ class GitHubMCPService {
         html_url: repo.html_url,
         topics: repo.topics || []
       })).sort((a, b) => b.stargazers_count - a.stargazers_count);
+
+      // 缓存结果
+      await this.cache.set('user_repositories', username, repoList);
+      
+      return repoList;
     } catch (error) {
       console.error('Error fetching user repositories:', error);
       throw new Error(`Failed to fetch user repositories: ${error.message}`);
@@ -696,7 +739,4 @@ class GitHubMCPService {
   }
 }
 
-// 创建单例实例
-const githubMCPService = new GitHubMCPService();
-
-module.exports = githubMCPService; 
+module.exports = GitHubMCPService; 
