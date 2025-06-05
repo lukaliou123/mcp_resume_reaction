@@ -39,6 +39,8 @@ GitHub项目分析工具：
 - mcp__github__analyze_repository：深度分析GitHub仓库架构、技术栈、代码质量
 - mcp__github__get_repository_info：获取GitHub仓库基本信息
 - mcp__github__get_file_content：获取仓库中特定文件内容
+- mcp__github__handle_url：智能处理GitHub URL，支持用户主页和仓库URL
+- mcp__github__get_user_repositories：获取GitHub用户的公开仓库列表
 
 【工具选择策略】：
 ⚠️ 重要：优先使用细化工具，避免使用get_resume_text！
@@ -55,10 +57,23 @@ GitHub项目分析工具：
 - 只有在用户明确要求"完整简历"时才使用 get_resume_text
 
 GitHub项目深度分析：
-- 用户询问"详细了解某个项目"、"项目架构"、"技术实现"时 → 首先使用 get_personal_projects 获取项目列表，然后使用 mcp__github__analyze_repository 分析具体GitHub仓库
+⚠️ 重要：对于任何GitHub URL，优先使用智能处理工具！
+
+🎯 GitHub URL处理优先级：
+1. 【优先】遇到任何GitHub URL时 → 首先使用 mcp__github__handle_url 智能处理
+   - 此工具能自动识别URL类型（用户主页/仓库）并返回相应内容
+   - 用户主页会返回仓库列表，仓库URL会返回仓库信息
+2. 【次选】如果需要深度分析特定仓库 → 使用 mcp__github__analyze_repository
+3. 【特殊】如果需要特定文件内容 → 使用 mcp__github__get_file_content
+
+具体策略：
+- 用户询问"详细了解某个项目"、"项目架构"、"技术实现"时：
+  1. 使用 get_personal_projects 获取项目列表
+  2. 从项目信息中提取GitHub URL
+  3. 使用 mcp__github__analyze_repository 深度分析该仓库
+- 用户直接提供GitHub URL时 → 【必须】使用 mcp__github__handle_url 智能处理
 - 用户问"项目代码"、"仓库分析"、"技术栈详情"时 → 使用 mcp__github__analyze_repository
 - 用户问"README"、"文档"、"具体文件"时 → 使用 mcp__github__get_file_content
-- 用户问"项目基本信息"、"仓库状态"时 → 使用 mcp__github__get_repository_info
 
 🔄 智能分析流程：
 当用户表达想要"深入了解某个项目"时，按以下步骤执行：
@@ -328,6 +343,60 @@ class LLMService {
               message: error.message,
               url: githubUrl,
               path: filePath
+            });
+          }
+        },
+      }),
+      
+      // 新增：智能GitHub URL处理工具 (支持用户主页)
+      new DynamicTool({
+        name: "mcp__github__handle_url",
+        description: "智能处理GitHub URL，支持用户主页和仓库URL。用户主页将返回仓库列表，仓库URL将返回仓库信息。(Intelligently handle GitHub URLs, supporting both user profiles and repository URLs)",
+        func: async (githubUrl) => {
+          if (!(await githubMCPService.isAvailable())) {
+            return JSON.stringify({
+              error: "GitHub功能未启用",
+              message: "请联系管理员配置GitHub功能"
+            });
+          }
+          
+          try {
+            const result = await githubMCPService.handleGitHubUrl(githubUrl);
+            return JSON.stringify(result);
+          } catch (error) {
+            return JSON.stringify({
+              error: "处理GitHub URL失败",
+              message: error.message,
+              url: githubUrl
+            });
+          }
+        },
+      }),
+      
+      // 新增：获取用户仓库列表工具
+      new DynamicTool({
+        name: "mcp__github__get_user_repositories",
+        description: "获取GitHub用户的公开仓库列表，按星数排序。需要提供用户名。(Get GitHub user's public repositories sorted by stars. Requires username)",
+        func: async (username) => {
+          if (!(await githubMCPService.isAvailable())) {
+            return JSON.stringify({
+              error: "GitHub功能未启用",
+              message: "请联系管理员配置GitHub功能"
+            });
+          }
+          
+          try {
+            const repos = await githubMCPService.getUserRepositories(username);
+            return JSON.stringify({
+              username: username,
+              repositories: repos,
+              total_count: repos.length
+            });
+          } catch (error) {
+            return JSON.stringify({
+              error: "获取用户仓库失败",
+              message: error.message,
+              username: username
             });
           }
         },

@@ -103,6 +103,55 @@ class GitHubMCPService {
   }
 
   /**
+   * 解析GitHub URL，支持用户主页和仓库URL
+   * @param {string} githubUrl - GitHub URL
+   * @returns {Object} 解析结果
+   */
+  parseGitHubUrlEnhanced(githubUrl) {
+    try {
+      // 仓库URL模式
+      const repoPatterns = [
+        /github\.com\/([^\/]+)\/([^\/]+?)(?:\.git)?(?:\/.*)?$/,
+        /^([^\/]+)\/([^\/]+)$/  // 简化格式 owner/repo
+      ];
+
+      // 用户主页URL模式
+      const userPatterns = [
+        /github\.com\/([^\/]+)\/?$/,
+        /^([^\/]+)$/  // 仅用户名
+      ];
+
+      // 先尝试匹配仓库URL
+      for (const pattern of repoPatterns) {
+        const match = githubUrl.match(pattern);
+        if (match) {
+          return {
+            type: 'repository',
+            owner: match[1],
+            repo: match[2]
+          };
+        }
+      }
+
+      // 再尝试匹配用户主页URL
+      for (const pattern of userPatterns) {
+        const match = githubUrl.match(pattern);
+        if (match) {
+          return {
+            type: 'user',
+            owner: match[1]
+          };
+        }
+      }
+      
+      return null;
+    } catch (error) {
+      console.error('Error parsing GitHub URL:', error);
+      return null;
+    }
+  }
+
+  /**
    * 获取仓库基本信息
    * @param {string} githubUrl - GitHub仓库URL
    * @returns {Object} 仓库信息
@@ -580,6 +629,70 @@ class GitHubMCPService {
     }
     
     return recommendations;
+  }
+
+  /**
+   * 获取用户的公开仓库列表
+   * @param {string} username - GitHub用户名
+   * @returns {Array} 仓库列表
+   */
+  async getUserRepositories(username) {
+    if (!(await this.isAvailable())) {
+      throw new Error('GitHub MCP Service is not available');
+    }
+
+    try {
+      const { data: repos } = await this.octokit.rest.repos.listForUser({
+        username: username,
+        type: 'public',
+        sort: 'updated',
+        per_page: 30
+      });
+
+      return repos.map(repo => ({
+        name: repo.name,
+        full_name: repo.full_name,
+        description: repo.description,
+        language: repo.language,
+        stargazers_count: repo.stargazers_count,
+        forks_count: repo.forks_count,
+        updated_at: repo.updated_at,
+        html_url: repo.html_url,
+        topics: repo.topics || []
+      })).sort((a, b) => b.stargazers_count - a.stargazers_count);
+    } catch (error) {
+      console.error('Error fetching user repositories:', error);
+      throw new Error(`Failed to fetch user repositories: ${error.message}`);
+    }
+  }
+
+  /**
+   * 智能处理GitHub URL - 支持用户主页和仓库URL
+   * @param {string} githubUrl - GitHub URL
+   * @returns {Object} 处理结果
+   */
+  async handleGitHubUrl(githubUrl) {
+    const parsed = this.parseGitHubUrlEnhanced(githubUrl);
+    if (!parsed) {
+      throw new Error('Invalid GitHub URL format');
+    }
+
+    if (parsed.type === 'repository') {
+      // 为了兼容现有的getRepositoryInfo方法，构造标准的仓库URL
+      const repoUrl = `https://github.com/${parsed.owner}/${parsed.repo}`;
+      return {
+        type: 'repository',
+        data: await this.getRepositoryInfo(repoUrl)
+      };
+    } else if (parsed.type === 'user') {
+      // 返回用户的仓库列表
+      const repos = await this.getUserRepositories(parsed.owner);
+      return {
+        type: 'user_repositories',
+        username: parsed.owner,
+        data: repos
+      };
+    }
   }
 }
 
