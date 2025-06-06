@@ -1,202 +1,357 @@
-# 技术文档：AI 助手的候选人信息交互页面
+# AI候选人智能助手 - 技术文档
 
-## 1. 项目概述
+## 📋 项目概述
 
-本项目旨在构建一个 PC Web 页面，用户可以通过该页面与 AI 助手进行自然语言交互，以查询和了解特定候选人的相关信息。AI 助手将通过调用一个 Model Context Protocol (MCP) 服务器来获取候选人的结构化数据。
+本项目是一个基于AI的候选人信息交互系统，提供PC Web界面让用户通过自然语言与AI助手对话，获取候选人的详细信息。系统集成了先进的GitHub项目分析功能、智能上下文感知和实时监控能力。
 
-## 2. 核心功能需求
+## 🚀 核心功能
 
-*   用户可以在 PC 页面的聊天界面通过自然语言提问关于候选人的问题。
-*   AI 助手能够理解用户的问题，并判断需要从 MCP Server 获取哪些信息。
-*   AI 助手调用 MCP Server 提供的工具或资源来获取具体信息。
-*   AI 助手整合从 MCP Server 获取的信息，并以自然语言的形式在聊天界面回复用户。
-*   初期支持查询的候选人信息范围包括但不限于：姓名、简历文本、简历链接、GitHub 个人资料链接、LinkedIn 个人资料链接、个人网站链接等。
+### 💬 智能对话交互
+- 自然语言理解用户问题
+- 智能调用相应工具获取信息
+- 生成友好的对话式回复
+- 支持多轮对话和上下文记忆
 
-### 🚀 GitHub项目深度分析功能
+### 🔍 GitHub深度分析
+- **智能项目分析**: 深度分析GitHub仓库架构、技术栈、代码质量
+- **智能URL处理**: 自动识别用户主页和仓库URL，提供相应分析
+- **技术栈识别**: 自动检测编程语言、框架、构建工具
+- **项目评估**: 生成复杂度评分和改进建议
+- **缓存优化**: 智能缓存分析结果，提升查询性能
 
-*   **智能GitHub项目分析**: 支持深度分析GitHub仓库的架构、技术栈、代码质量等。
-*   **智能URL处理**: 自动识别用户主页和仓库URL，提供相应的分析结果。
-*   **项目展示增强**: AI介绍个人项目时自动显示GitHub链接，引导用户深入了解。
-*   **智能建议问题**: 自动生成GitHub分析相关的后续问题，提升用户体验。
+### 🧠 智能上下文感知
+- **会话记忆**: 记住之前分析的GitHub项目
+- **智能建议**: 基于上下文自动生成相关问题
+- **项目关联**: 将用户问题与已分析项目智能关联
 
-### 🔄 智能交互闭环
+### 📊 实时监控与分析
+- **LangFuse集成**: 全面的API调用追踪和性能监控
+- **工具调用监控**: 智能分析工具使用模式
+- **异常检测**: 自动识别异常调用行为
+- **策略建议**: 基于使用数据提供优化建议
 
-1. **项目介绍** → AI展示项目信息及GitHub链接
-2. **链接展示** → 格式化显示：`📋 **GitHub仓库**: [项目名称](链接)`
-3. **智能建议** → 自动生成："能分析一下XX项目的Github库里的内容吗？"
-4. **深度分析** → 用户点击触发GitHub仓库深度分析功能
-
-## 3. 系统架构图
+## 🏗️ 系统架构
 
 ```
-+-----------------+      +---------------------+      +----------------------+      +-----------------+      +-----------------+
-|   PC Web UI     |----->|   Application BFF   |----->|   LLM (OpenAI API)   |<---->|  LangChain.js   |----->|   MCP Server    |
-| (HTML/JS/Vue/  |      | (Node.js + Express) |      +----------------------+      | (Agent, Tools)  |      | (@jhgaylor/...) |
-|  React, etc.)   |      +---------------------+                                    +-----------------+      +-----------------+
-+-----------------+
-       ^                                                                                     |
-       |-------------------------------------------------------------------------------------|
-                                          (AI Response)
+┌─────────────────┐    ┌─────────────────────┐    ┌──────────────────┐
+│   PC Web UI     │───▶│  AI-Candidate-BFF   │───▶│   LLM Service    │
+│ (Vue/React/JS)  │    │   (Express.js)      │    │ (OpenAI/Qwen)    │
+└─────────────────┘    └─────────────────────┘    └──────────────────┘
+                                │                           │
+                                ▼                           ▼
+                       ┌─────────────────┐         ┌──────────────────┐
+                       │ 集成MCP服务器    │         │   LangChain.js   │
+                       │ (Process-内)    │         │  (Agent, Tools)  │
+                       └─────────────────┘         └──────────────────┘
+                                │                           │
+                                ▼                           ▼
+                    ┌─────────────────────────┐    ┌──────────────────┐
+                    │     GitHub API          │    │   LangFuse       │
+                    │   + 缓存服务             │    │    监控服务       │
+                    └─────────────────────────┘    └──────────────────┘
 ```
 
-**组件说明:**
+### 架构特点
+- **🎯 集成模式**: MCP服务器完全集成，无子进程开销
+- **⚡ 高性能**: 进程内通信，零序列化开销
+- **🔧 易部署**: 单一应用，支持多种云平台
+- **📊 可监控**: 全链路追踪和性能分析
 
-*   **PC Web UI:** 用户交互界面，负责接收用户输入和展示 AI 回复。
-*   **Application BFF (Backend For Frontend):** 后端应用，处理前端请求，协调与 LLM 和 MCP Server 的交互。
-    *   使用 Node.js 和 Express.js (初期) 或 NestJS (未来考虑) 构建。
-    *   集成 LangChain.js 来管理与 LLM 的交互和工具调用。
-*   **LLM (OpenAI API):** 大型语言模型，负责理解用户意图、决定调用哪些工具以及生成自然语言回复。
-*   **LangChain.js:** JavaScript/TypeScript 版本的 LangChain 框架，用于：
-    *   封装与 OpenAI API 的交互。
-    *   管理 Prompts。
-    *   创建 Chains (链) 和 Agents (智能体)。
-    *   将 MCP Server 提供的功能抽象为 LangChain Tools。
-*   **MCP Server:** 基于 `@jhgaylor/node-candidate-mcp-server` 库构建，提供候选人的结构化信息。
-    *   初期通过子进程和 STDIN/STDOUT 与 BFF 通信。
-    *   未来可以改造成通过 HTTP 提供服务。
+## 🛠️ 技术栈
 
-## 4. 技术栈选型
+### 后端核心
+- **应用框架**: Express.js 5.1.0
+- **AI/LLM**: 
+  - OpenAI GPT (gpt-4o-mini)
+  - 阿里云通义千问 (qwen-turbo-latest)
+- **AI框架**: LangChain.js + LangGraph
+- **MCP协议**: @modelcontextprotocol/sdk (完全集成)
 
-*   **前端 (PC Web UI):**
-    *   初期：简单 HTML + JavaScript，用于快速验证。
-    *   后续：可选用 Vue.js 或 React 等现代前端框架。
-*   **后端 (Application BFF):**
-    *   运行时：Node.js
-    *   Web 框架：Express.js (初期)
-    *   LLM 应用框架：LangChain.js
-*   **大型语言模型 (LLM):**
-    *   OpenAI API (e.g., GPT-3.5-turbo, GPT-4)
-*   **MCP Server:**
-    *   基础库：`@jhgaylor/node-candidate-mcp-server`
-    *   通信方式 (BFF 与 MCP Server)：
-        *   初期：通过子进程启动 `examples/stdio.ts` (或其编译后的 `.js` 文件)，使用 STDIN/STDOUT 进行 JSON-RPC 通信。
-        *   未来：考虑将 MCP Server 改造为 HTTP 服务，使用 `@modelcontextprotocol/sdk` 中的 `StreamableHTTPServerTransport`。
-*   **GitHub分析服务:**
-    *   GitHub API集成：使用 `@octokit/rest` 进行GitHub API交互
-    *   缓存服务：GitHubCacheService，支持内存和文件缓存
-    *   分析功能：仓库信息获取、技术栈分析、代码结构解析、语言统计等
+### 集成服务
+- **GitHub分析**: @octokit/rest + 智能缓存
+- **监控服务**: LangFuse (langfuse-langchain)
+- **邮件服务**: Nodemailer + Mailgun
+- **数据校验**: Zod
 
-## 5. 详细流程设计
+### 部署支持
+- **云平台**: Vercel, Railway, Docker
+- **进程管理**: PM2
+- **环境管理**: dotenv
 
-1.  **用户输入:** 用户在前端页面输入自然语言问题 (例如："介绍一下候选人的 GitHub 情况")。
-2.  **请求传递:** 前端将用户问题发送到 Application BFF。
-3.  **意图理解与工具选择 (LangChain.js + OpenAI - 第一轮):**
-    *   BFF 使用 LangChain.js Agent。
-    *   Agent 将用户问题和预设的 Prompt (包含可用工具列表和描述) 发送给 OpenAI API。
-    *   OpenAI API 返回一个判断，指示需要调用哪个或哪些 MCP Server 工具 (例如 `get_github_url`) 以及调用时需要的参数。
-4.  **MCP Server 调用:**
-    *   BFF 根据 LLM 的指示，格式化成 MCP JSON-RPC 请求。
-    *   BFF 通过 STDIN 将请求发送给作为子进程运行的 MCP Server (`stdio.ts` 脚本)。
-    *   MCP Server 执行相应工具 (如 `GetGithubUrl`)，并通过 STDOUT 返回 JSON-RPC 响应 (包含 GitHub URL)。
-5.  **信息获取与处理:** BFF 解析 MCP Server 的响应，提取所需信息。
-6.  **答案生成 (LangChain.js + OpenAI - 第二轮):**
-    *   BFF 将从 MCP Server 获取到的信息和原始用户问题 (以及可能的对话历史) 再次通过 LangChain.js 发送给 OpenAI API。
-    *   OpenAI API 根据这些信息生成一段自然的、针对用户问题的回复。
-7.  **响应返回:** BFF 将 AI 生成的回复发送回前端。
-8.  **前端展示:** 前端页面将 AI 的回复展示给用户。
+## 📁 项目结构
 
-### 🔍 GitHub项目分析流程 (新增)
+```
+ai-candidate-bff/
+├── index.js                    # 🚀 主应用入口
+├── llmService.js              # 🧠 LLM服务 (集成MCP工具)
+├── src/
+│   ├── mcp-server/            # 📦 集成MCP服务器源码
+│   │   ├── server.js          # 核心MCP服务逻辑
+│   │   ├── config.js          # MCP配置管理
+│   │   ├── resources/         # 候选人资源定义
+│   │   ├── tools/             # 候选人工具定义
+│   │   └── prompts/           # 智能提示模板
+│   └── services/              # 🔧 核心服务层
+│       ├── mcpService.js      # MCP服务封装
+│       ├── githubMCPService.js # GitHub分析服务
+│       ├── chatHistoryService.js # 会话历史管理
+│       ├── conversationContextService.js # 上下文感知
+│       ├── toolCallMonitorService.js # 工具调用监控
+│       └── githubCacheService.js # GitHub缓存服务
+├── config/                    # ⚙️ 配置文件
+│   ├── candidate.js           # 候选人基本信息
+│   ├── resume-content.js      # 详细简历内容
+│   └── server.js              # 服务器配置
+├── public/                    # 🌐 静态前端文件
+├── cache/                     # 💾 GitHub分析缓存
+└── scripts/                   # 📜 部署和测试脚本
+```
 
-1.  **项目信息展示**: 当用户询问个人项目时，AI回复中自动包含GitHub链接。
-2.  **智能建议生成**: 系统检测到GitHub链接后，自动生成"能分析一下XX项目的Github库里的内容吗？"建议问题。
-3.  **GitHub分析触发**: 用户点击建议问题或直接发送GitHub链接。
-4.  **仓库信息获取**: 
-    *   调用GitHub API获取仓库基本信息（描述、语言、星数等）
-    *   分析仓库目录结构和文件类型
-    *   提取技术栈信息（框架、构建工具、配置文件等）
-5.  **深度分析**: 
-    *   生成技术栈总结和复杂度评估
-    *   分析项目类型和开发状态
-    *   提供关键亮点和改进建议
-6.  **结果缓存**: 分析结果缓存到本地，提升后续查询速度。
-7.  **智能回复**: AI基于分析结果生成详细的项目技术报告。
+## 🔧 核心功能详解
 
-**Prompt 设计思路 (初步):**
+### 1. 智能对话API
+**端点**: `POST /chat`
 
-*   **工具判断 Prompt:**
-    *   角色：你是一个能干的助手，你需要根据用户的问题，从以下可用工具中选择最合适的工具来获取信息。
-    *   可用工具列表：
-        *   `get_resume_text`: 获取候选人的纯文本简历内容。
-        *   `get_resume_url`: 获取候选人简历的链接。
-        *   `get_linkedin_url`: 获取候选人 LinkedIn 档案的链接。
-        *   `get_github_url`: 获取候选人 GitHub 主页的链接。
-        *   ... (其他 MCP Server 提供的工具)
-    *   输出格式要求：指定一个 JSON 格式，包含工具名称和参数。
-*   **答案生成 Prompt:**
-    *   角色：你是一个乐于助人的 AI 助手。
-    *   上下文：提供用户的问题和从工具调用中获取的相关信息。
-    *   指令：请根据提供的信息，用自然、友好的方式回答用户的问题。
+**特性**:
+- 🧠 智能意图理解
+- 🔄 多轮对话支持  
+- 💡 智能建议生成
+- 📝 会话历史管理
+- 🎯 上下文感知回复
 
-## 6. MCP Server 接口定义 (初期 - 基于 `examples/stdio.ts`)
+**请求格式**:
+```json
+{
+  "message": "能分析一下AI候选人BFF系统的Github库里的内容吗？",
+  "sessionId": "session_123"
+}
+```
 
-根据 `@jhgaylor/node-candidate-mcp-server/examples/stdio.ts` 的配置，初期可用的工具/资源（通过 `resources/read` 或 `tools/call` 调用）包括：
+**响应格式**:
+```json
+{
+  "text": "AI助手的详细回复...",
+  "suggestions": [
+    "这个项目的架构设计如何？",
+    "使用了哪些核心技术？",
+    "项目的代码质量怎么样？"
+  ],
+  "sessionId": "session_123",
+  "timestamp": "2024-01-01T12:00:00.000Z"
+}
+```
 
-*   **资源 (通过 `resources/read`):**
-    *   `candidate-info://resume-text`: 获取 `candidateConfig.resumeText`
-    *   `candidate-info://resume-url`: 获取 `candidateConfig.resumeUrl`
-    *   `candidate-info://linkedin-url`: 获取 `candidateConfig.linkedinUrl`
-    *   `candidate-info://github-url`: 获取 `candidateConfig.githubUrl`
-    *   `candidate-info://website-url`: 获取 `candidateConfig.websiteUrl`
-*   **工具 (通过 `tools/call`):**
-    *   `get_resume_text`: (功能上与读取资源 `candidate-info://resume-text` 类似)
-    *   `get_resume_url`: (功能上与读取资源 `candidate-info://resume-url` 类似)
-    *   ... (可以查看 `stdio.ts` 或 MCP Server 内部注册了哪些工具)
+### 2. GitHub深度分析
 
-### 🔧 GitHub分析工具 (新增)
+**支持的GitHub工具**:
+- `mcp__github__handle_url`: 🎯 智能URL处理 (用户主页/仓库自动识别)
+- `mcp__github__analyze_repository`: 🔍 深度仓库分析
+- `mcp__github__get_repository_info`: 📊 基本仓库信息
+- `mcp__github__get_file_content`: 📄 文件内容获取
+- `mcp__github__get_user_repositories`: 📋 用户仓库列表
 
-*   **GitHub项目分析工具:**
-    *   `mcp__github__analyze_repository`: 深度分析GitHub仓库架构、技术栈、代码质量
-    *   `mcp__github__get_repository_info`: 获取GitHub仓库基本信息
-    *   `mcp__github__get_file_content`: 获取仓库中特定文件内容
-    *   `mcp__github__handle_url`: 智能处理GitHub URL，支持用户主页和仓库URL
-    *   `mcp__github__get_user_repositories`: 获取GitHub用户的公开仓库列表
+**分析维度**:
+- **技术栈识别**: 编程语言、框架、构建工具
+- **项目评估**: 复杂度评分、开发状态
+- **架构分析**: 目录结构、设计模式
+- **代码质量**: 最佳实践、改进建议
 
-*(注意：具体可用的工具和资源需要以 `stdio.ts` 实际运行时注册到 MCP Server 实例为准。)*
+### 3. 智能监控系统
 
-## 7. 开发步骤与里程碑 (初步)
+**LangFuse监控**: `GET /monitoring`
+- 📈 API调用统计
+- 🪙 Token使用追踪  
+- ❌ 错误日志记录
+- ⚡ 性能指标分析
 
-1.  **【BFF】基础后端框架搭建:**
-    *   初始化 Node.js + Express.js 项目。
-    *   设置基本的 API 端点 (例如 `/chat`)。
-2.  **【BFF & MCP】后端与 MCP Server (Stdio) 通信实现:**
-    *   在 BFF 中实现通过子进程启动 `node-candidate-mcp-server/examples/stdio.ts` (或其编译产物)。
-    *   实现向子进程的 STDIN 发送 JSON-RPC 请求，并从 STDOUT 读取和解析响应的逻辑。
-    *   编写一个简单的测试接口，手动构造 MCP 请求，验证与 MCP Server 的通信。
-3.  **【BFF & LLM】集成 LangChain.js 和 OpenAI API (第一轮：工具判断):**
-    *   安装 `langchain` 和 `openai` npm 包。
-    *   配置 OpenAI API Key。
-    *   使用 LangChain.js 定义 MCP 工具 (`Tool` 对象)。
-    *   创建 LangChain Agent，并设计用于工具判断的 Prompt。
-    *   实现接收用户问题后，调用 Agent 判断应使用哪个 MCP 工具的逻辑。
-4.  **【BFF & MCP & LLM】实现 LangChain.js Agent 调用 MCP Server 工具:**
-    *   将步骤 2 中的 MCP Server 通信逻辑封装成 LangChain `Tool` 的执行函数。
-    *   确保 Agent 能够成功调用这些封装好的 MCP 工具。
-5.  **【BFF & LLM】集成 LangChain.js (第二轮：基于工具结果生成回复):**
-    *   设计用于生成最终回复的 Prompt。
-    *   实现获取 MCP 工具返回结果后，结合用户问题，调用 OpenAI API 生成回复的逻辑。
-6.  **【Frontend】开发简单前端页面进行联调:**
-    *   创建简单的 HTML 页面，包含输入框和聊天显示区域。
-    *   实现将用户输入发送到 BFF `/chat` 接口，并展示返回的 AI 回复。
-7.  **【BFF & GitHub】集成GitHub分析功能 (新增):**
-    *   配置GitHub Personal Access Token环境变量。
-    *   集成GitHubMCPService，实现仓库信息获取和技术栈分析。
-    *   添加GitHub分析相关的LangChain工具。
-    *   实现智能建议问题生成，优先推荐GitHub分析功能。
-8.  **【ALL】端到端测试和迭代优化。**
+**工具调用监控**: `GET /tools/monitor/stats`
+- 🔧 工具使用模式分析
+- 🚨 异常调用检测
+- 💡 策略优化建议
+- 📊 实时统计数据
 
-## 8. (可选) 部署方案初步考虑
+## 🚦 API端点总览
 
-*   **BFF 应用:** 可以部署到 Node.js 支持的云平台 (如 Vercel, Heroku, AWS EC2/Lambda, Google Cloud Run 等)。
-*   **MCP Server:**
-    *   Stdio 模式：与 BFF 应用部署在同一台服务器/容器内，由 BFF 应用作为子进程启动。
-    *   HTTP 模式 (未来)：可以作为独立服务部署。
-*   需要管理 OpenAI API Key 等敏感配置。
+### 核心服务
+- `GET /` - 🏠 前端界面
+- `GET /health` - ❤️ 健康检查  
+- `POST /chat` - 💬 智能对话
+- `POST /mcp` - 🔌 MCP协议端点
 
-## 9. (可选) 潜在风险与挑战
+### 监控管理
+- `GET /monitoring` - 📊 LangFuse监控状态
+- `GET /tools/monitor/stats` - 🔧 工具调用统计
+- `GET /tools/monitor/analysis` - 📈 调用模式分析
+- `GET /tools/monitor/anomalies` - 🚨 异常检测
+- `GET /tools/monitor/recommendations` - 💡 策略建议
 
-*   **Prompt Engineering:** 设计高效、准确的 Prompt 可能需要多次迭代。
-*   **LLM 幻觉:** LLM 可能会生成不准确或虚构的信息，需要注意。
-*   **MCP Server 稳定性:** 确保作为子进程的 MCP Server 稳定运行，并能正确处理错误。
-*   **Stdio 通信的复杂性:** 管理子进程和 STDIN/STDOUT 流可能比 HTTP 通信更复杂，尤其是在错误处理和并发方面。
-*   **LangChain.js 学习曲线:** 团队成员可能需要时间熟悉 LangChain.js 的概念和用法。
-*   **成本控制:** OpenAI API 调用会产生费用，需要监控和管理。 
+### 数据管理
+- `GET /chat/history/:sessionId` - 📝 会话历史
+- `DELETE /chat/history/:sessionId` - 🗑️ 清除历史
+- `GET /chat/stats` - 📊 对话统计
+- `GET /github/cache/stats` - 💾 GitHub缓存统计
+- `GET /context/stats` - 🧠 上下文统计
+
+### 测试端点
+- `GET /test-mcp/resume-text` - 📄 简历文本测试
+- `GET /test-mcp/github-url` - 🐙 GitHub链接测试
+- `GET /test-mcp/linkedin-url` - 💼 LinkedIn链接测试
+
+## ⚙️ 环境配置
+
+### 必需配置
+```bash
+# AI服务配置
+AI_PROVIDER_AREA=global              # global/cn (选择AI提供商区域)
+OPENAI_API_KEY=your_openai_key       # OpenAI API密钥
+OPENAI_MODEL=gpt-4o-mini             # OpenAI模型
+
+# 阿里云通义千问 (AI_PROVIDER_AREA=cn时使用)
+DASHSCOPE_API_KEY=your_dashscope_key
+DASHSCOPE_MODEL=qwen-turbo-latest
+```
+
+### 可选配置  
+```bash
+# LangFuse监控
+LANGFUSE_PUBLIC_KEY=pk-lf-xxx
+LANGFUSE_SECRET_KEY=sk-lf-xxx  
+LANGFUSE_BASE_URL=https://cloud.langfuse.com
+
+# GitHub分析功能
+FEATURE_GITHUB_ANALYSIS_ENABLED=true
+GITHUB_PERSONAL_ACCESS_TOKEN=github_pat_xxx
+
+# 应用配置
+NODE_ENV=production
+PORT=3000
+CHAT_HISTORY_MAX_MESSAGES=20
+CHAT_HISTORY_SESSION_TIMEOUT=3600000
+```
+
+## 🚀 快速开始
+
+### 本地开发
+```bash
+# 1. 克隆项目
+git clone <repository-url>
+cd ai-candidate-bff
+
+# 2. 安装依赖
+npm install
+
+# 3. 配置环境变量
+cp .env.production .env
+# 编辑.env文件，设置必需的API密钥
+
+# 4. 启动开发服务器
+npm run dev
+
+# 5. 访问应用
+open http://localhost:3000
+```
+
+### 生产部署
+
+**Vercel部署** (推荐):
+```bash
+# 1. 安装Vercel CLI
+npm i -g vercel
+
+# 2. 部署到Vercel
+vercel --prod
+
+# 3. 配置环境变量
+vercel env add OPENAI_API_KEY
+vercel env add LANGFUSE_PUBLIC_KEY
+vercel env add LANGFUSE_SECRET_KEY
+```
+
+**Docker部署**:
+```bash
+# 1. 构建镜像
+docker build -t ai-candidate-bff .
+
+# 2. 运行容器
+docker run -p 3000:3000 \
+  -e OPENAI_API_KEY=your_key \
+  -e LANGFUSE_PUBLIC_KEY=your_key \
+  ai-candidate-bff
+```
+
+## 📊 使用示例
+
+### 基本对话
+```bash
+curl -X POST http://localhost:3000/chat \
+  -H "Content-Type: application/json" \
+  -d '{
+    "message": "介绍一下候选人的技术能力",
+    "sessionId": "demo_session"
+  }'
+```
+
+### GitHub项目分析
+```bash
+curl -X POST http://localhost:3000/chat \
+  -H "Content-Type: application/json" \
+  -d '{
+    "message": "分析一下这个GitHub项目：https://github.com/user/repo",
+    "sessionId": "demo_session"
+  }'
+```
+
+### 监控数据查看
+```bash
+# 查看LangFuse监控状态
+curl http://localhost:3000/monitoring
+
+# 查看工具调用统计
+curl http://localhost:3000/tools/monitor/stats
+
+# 查看异常检测结果
+curl http://localhost:3000/tools/monitor/anomalies
+```
+
+## 🎯 项目优势
+
+### 🏗️ 架构优势
+- **🎯 集成模式**: 无子进程开销，单一应用部署
+- **⚡ 高性能**: 进程内通信，零延迟调用
+- **🔧 易维护**: 统一代码库，简化架构
+- **📦 易部署**: 支持多种云平台，容器化友好
+
+### 🤖 AI能力
+- **🧠 智能理解**: 精准识别用户意图
+- **🔄 上下文感知**: 多轮对话记忆能力
+- **💡 智能建议**: 基于上下文生成相关问题
+- **🎯 工具选择**: 智能选择最适合的工具
+
+### 📊 监控能力
+- **🔍 全链路追踪**: LangFuse完整监控
+- **📈 性能分析**: 实时性能指标
+- **🚨 异常检测**: 自动识别异常模式
+- **💡 智能建议**: 基于数据的优化建议
+
+### 🔧 扩展性
+- **🔌 模块化设计**: 松耦合的服务架构
+- **🛠️ 易于扩展**: 新功能快速集成
+- **⚙️ 配置灵活**: 运行时配置切换
+- **🌐 多提供商**: 支持多种AI服务商
+
+## 🤝 贡献指南
+
+### 开发流程
+1. Fork项目并创建功能分支
+2. 编写代码并添加测试
+3. 确保所有测试通过
+4. 提交Pull Request
+
+### 代码规范
+- 使用ESLint和Prettier保证代码质量
+- 遵循语义化提交信息规范
+- 为新功能编写相应文档
+
+---
+
+**🎉 项目特色**: 这是一个集成了最新AI技术、GitHub深度分析、智能监控的现代化候选人信息系统，采用先进的集成架构，为HR和技术面试官提供强大的AI助手能力！ 
