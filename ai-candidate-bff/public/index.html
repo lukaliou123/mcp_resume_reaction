@@ -514,6 +514,31 @@
             background: linear-gradient(135deg, #b5179e, #7209b7);
         }
 
+        /* 流式输出光标动画 */
+        .streaming-cursor {
+            color: var(--primary-color);
+            font-weight: bold;
+            margin-left: 2px;
+            display: inline-block;
+        }
+
+        @keyframes blink {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0; }
+        }
+
+        /* 工具调用状态样式 */
+        .tool-status {
+            color: #666;
+            font-size: 0.9rem;
+            font-style: italic;
+            margin: 0.5rem 0;
+            padding: 0.3rem 0.6rem;
+            background: rgba(0, 0, 0, 0.05);
+            border-radius: 4px;
+            border-left: 3px solid var(--accent-color);
+        }
+
         /* 响应式设计 */
         @media (max-width: 768px) {
             .header {
@@ -871,18 +896,331 @@
 
 
 
+        // 流式聊天类
+        class StreamingChat {
+            constructor() {
+                this.isStreaming = false;
+                this.currentMessageElement = null;
+                this.currentTextElement = null;
+                this.fullText = '';
+                this.retryCount = 0;
+                this.maxRetries = 3;
+            }
+
+            async sendStreamMessage(message) {
+                if (this.isStreaming) {
+                    console.log('Already streaming, ignoring new request');
+                    return;
+                }
+                
+                this.isStreaming = true;
+                this.fullText = '';
+                this.retryCount = 0;
+                lastUserMessage = message;
+                
+                // 显示用户消息
+                addMessage(message, true);
+                messageInput.value = '';
+                messageInput.focus();
+                
+                // 创建AI消息容器
+                this.currentMessageElement = this.createStreamingMessageElement();
+                this.currentTextElement = this.currentMessageElement.querySelector('.message-text');
+                
+                try {
+                    await this.processStreamResponse(message);
+                } catch (error) {
+                    console.error('Stream error:', error);
+                    this.handleStreamError(error, message);
+                } finally {
+                    // 确保状态重置
+                    this.isStreaming = false;
+                    console.log('🔄 Streaming state reset');
+                }
+            }
+
+            async processStreamResponse(message) {
+                const response = await fetch('/chat/stream', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        message: message,
+                        sessionId: currentSessionId 
+                    })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = '';
+
+                try {
+                    while (true) {
+                        const { done, value } = await reader.read();
+                        if (done) break;
+
+                        buffer += decoder.decode(value, { stream: true });
+                        const lines = buffer.split('\n');
+                        
+                        // 保留最后一行可能不完整的数据
+                        buffer = lines.pop() || '';
+
+                        for (const line of lines) {
+                            if (line.startsWith('data: ')) {
+                                try {
+                                    const data = JSON.parse(line.slice(6));
+                                    this.handleStreamData(data);
+                                } catch (parseError) {
+                                    console.warn('Failed to parse SSE data:', line);
+                                }
+                            }
+                        }
+                    }
+                } finally {
+                    // 确保reader被正确关闭
+                    try {
+                        reader.releaseLock();
+                    } catch (e) {
+                        console.warn('Reader already released');
+                    }
+                }
+            }
+
+            handleStreamData(data) {
+                switch (data.type) {
+                    case 'session':
+                        currentSessionId = data.sessionId;
+                        localStorage.setItem('chatSessionId', currentSessionId);
+                        console.log('📝 Session ID:', currentSessionId);
+                        break;
+                        
+                    case 'start':
+                        this.showThinkingState(data.message || '正在思考中...');
+                        break;
+                        
+                    case 'token':
+                        this.appendToken(data.content);
+                        break;
+                        
+                    case 'tool_start':
+                        this.showToolState(`🔧 ${data.message || '正在调用工具...'}`);
+                        break;
+                        
+                    case 'tool_end':
+                        this.showToolState(`✅ ${data.message || '工具调用完成'}`);
+                        break;
+                        
+                    case 'completed':
+                        this.finalizeMessage(data.fullText, data.duration);
+                        // 强制重置流式状态
+                        this.isStreaming = false;
+                        console.log('✅ Stream completed, state reset');
+                        break;
+                        
+                    case 'suggestions':
+                        this.addSuggestions(data.suggestions);
+                        break;
+                        
+                    case 'error':
+                        this.handleStreamError(data.message, lastUserMessage, data.canRetry);
+                        break;
+                }
+            }
+
+            showThinkingState(message) {
+                if (this.currentTextElement) {
+                    this.currentTextElement.innerHTML = `<em style="color: #888; opacity: 0.8;">${message}</em>`;
+                    this.removeStreamingCursor();
+                }
+            }
+
+            showToolState(message) {
+                if (this.currentTextElement) {
+                    this.currentTextElement.innerHTML += `<br><small style="color: #666;">${message}</small>`;
+                    this.scrollToBottom();
+                }
+            }
+
+            appendToken(token) {
+                if (this.currentTextElement) {
+                    this.fullText += token;
+                    
+                    // 清除思考状态，开始显示实际内容
+                    if (this.currentTextElement.querySelector('em')) {
+                        this.currentTextElement.innerHTML = '';
+                    }
+                    
+                    this.currentTextElement.textContent = this.fullText;
+                    this.addStreamingCursor();
+                    this.scrollToBottom();
+                }
+            }
+
+            addStreamingCursor() {
+                // 移除旧的光标
+                this.removeStreamingCursor();
+                
+                // 添加新的光标
+                const cursor = document.createElement('span');
+                cursor.className = 'streaming-cursor';
+                cursor.textContent = '|';
+                cursor.style.animation = 'blink 1s infinite';
+                this.currentTextElement.appendChild(cursor);
+            }
+
+            removeStreamingCursor() {
+                const cursor = this.currentMessageElement?.querySelector('.streaming-cursor');
+                if (cursor) {
+                    cursor.remove();
+                }
+            }
+
+            finalizeMessage(fullText, duration) {
+                if (this.currentTextElement && fullText) {
+                    this.fullText = fullText;
+                    
+                    // 移除光标
+                    this.removeStreamingCursor();
+                    
+                    // 使用marked.js渲染markdown
+                    this.currentTextElement.innerHTML = marked.parse(fullText);
+                    
+                    // 添加持续时间信息
+                    if (duration) {
+                        const durationElement = document.createElement('small');
+                        durationElement.style.color = '#999';
+                        durationElement.style.fontSize = '0.8rem';
+                        durationElement.textContent = ` (${duration}ms)`;
+                        this.currentTextElement.appendChild(durationElement);
+                    }
+                    
+                    this.scrollToBottom();
+                }
+            }
+
+            addSuggestions(suggestions) {
+                if (suggestions && suggestions.length > 0) {
+                    console.log('💡 Generated suggestions:', suggestions);
+                    
+                    // 在当前AI消息下方添加建议，而不是覆盖预设问题
+                    if (this.currentMessageElement) {
+                        const messageDiv = this.currentMessageElement.querySelector('.ai-message');
+                        if (messageDiv && !messageDiv.querySelector('.suggestion-buttons')) {
+                            const suggestionContainer = document.createElement('div');
+                            suggestionContainer.className = 'suggestion-buttons';
+                            suggestionContainer.style.marginTop = '1rem';
+                            suggestionContainer.style.display = 'flex';
+                            suggestionContainer.style.gap = '0.5rem';
+                            suggestionContainer.style.flexWrap = 'wrap';
+                            
+                            suggestions.forEach(suggestion => {
+                                const btn = document.createElement('button');
+                                btn.className = 'quick-question-btn';
+                                btn.style.fontSize = '0.85rem';
+                                btn.style.padding = '0.4rem 0.8rem';
+                                btn.textContent = suggestion;
+                                btn.onclick = () => {
+                                    messageInput.value = suggestion;
+                                    this.sendStreamMessage(suggestion);
+                                };
+                                suggestionContainer.appendChild(btn);
+                            });
+                            
+                            messageDiv.appendChild(suggestionContainer);
+                        }
+                    }
+                }
+            }
+
+            handleStreamError(error, failedMessage, canRetry = true) {
+                console.error('Stream error:', error);
+                
+                // 移除当前的流式消息元素
+                if (this.currentMessageElement) {
+                    this.currentMessageElement.remove();
+                }
+                
+                // 显示错误消息
+                const errorMessage = typeof error === 'string' ? error : error.message || '发生未知错误';
+                addMessage(`抱歉，发生了错误: ${errorMessage}`, false);
+                
+                // 添加重试按钮
+                if (canRetry && failedMessage) {
+                    const lastMessageWrapper = chatContainer.lastChild;
+                    if (lastMessageWrapper) {
+                        const messageDiv = lastMessageWrapper.querySelector('.ai-message');
+                        if (messageDiv) {
+                            const retryButton = this.createRetryButton(failedMessage);
+                            messageDiv.appendChild(retryButton);
+                        }
+                    }
+                }
+            }
+
+            createRetryButton(failedMessage) {
+                const retryButton = document.createElement('button');
+                retryButton.classList.add('quick-question-btn');
+                retryButton.style.marginTop = '0.5rem';
+                retryButton.innerHTML = '<i class="fas fa-redo"></i> 点击重试';
+                retryButton.onclick = () => {
+                    // 移除错误消息
+                    const errorWrapper = retryButton.closest('.message-wrapper');
+                    if (errorWrapper) errorWrapper.remove();
+                    
+                    // 重试发送消息
+                    this.sendStreamMessage(failedMessage);
+                };
+                return retryButton;
+            }
+
+            createStreamingMessageElement() {
+                const wrapper = document.createElement('div');
+                wrapper.className = 'message-wrapper ai-wrapper';
+                
+                const avatar = document.createElement('div');
+                avatar.className = 'avatar ai-avatar';
+                avatar.innerHTML = '<i class="fas fa-robot"></i>';
+                
+                const messageDiv = document.createElement('div');
+                messageDiv.className = 'message ai-message';
+                
+                const textDiv = document.createElement('div');
+                textDiv.className = 'message-text';
+                
+                messageDiv.appendChild(textDiv);
+                wrapper.appendChild(avatar);
+                wrapper.appendChild(messageDiv);
+                
+                chatContainer.appendChild(wrapper);
+                this.scrollToBottom();
+                
+                return wrapper;
+            }
+
+            scrollToBottom() {
+                chatContainer.scrollTop = chatContainer.scrollHeight;
+            }
+        }
+
+        // 初始化流式聊天
+        const streamingChat = new StreamingChat();
+
+        // 调试用：手动重置流式状态
+        window.resetStreamingState = function() {
+            streamingChat.isStreaming = false;
+            console.log('🔧 Debug: Streaming state manually reset');
+        };
+
         // 修改sendMessage以保存消息并分离出实际的服务器请求
         async function sendMessage() {
             const message = messageInput.value.trim();
             if (!message) return;
-            lastUserMessage = message; // 保存用户消息
-
-            // 显示用户消息
-            addMessage(message, true);
-            messageInput.value = '';
-            messageInput.focus();
             
-            await sendMessageToServer(lastUserMessage);
+            // 使用流式聊天发送消息
+            await streamingChat.sendStreamMessage(message);
         }
 
         async function sendMessageToServer(messageText) {

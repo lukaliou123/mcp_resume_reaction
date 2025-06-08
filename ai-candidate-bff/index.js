@@ -124,6 +124,62 @@ app.post('/chat', async (req, res) => {
   }
 });
 
+// 流式聊天API端点 - 使用ReadableStream
+app.post('/chat/stream', async (req, res) => {
+  try {
+    const { message, sessionId } = req.body;
+    
+    if (!message) {
+      return res.status(400).json({ error: 'Message is required' });
+    }
+    
+    // 生成或使用提供的会话ID
+    const currentSessionId = sessionId || `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    
+    console.log(`接收到流式聊天请求: ${message} (Session: ${currentSessionId})`);
+    
+    // 设置响应头
+    res.writeHead(200, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+      'X-Accel-Buffering': 'no' // 禁用nginx缓冲
+    });
+    
+    // 发送会话ID
+    res.write(`data: ${JSON.stringify({
+      type: 'session',
+      sessionId: currentSessionId
+    })}\n\n`);
+    
+    // 处理客户端断开连接
+    req.on('close', () => {
+      console.log('Client disconnected from stream');
+    });
+    
+    req.on('aborted', () => {
+      console.log('Client aborted stream');
+    });
+    
+    // 调用流式处理
+    await llmService.processQueryStream(message, currentSessionId, res);
+    
+  } catch (error) {
+    console.error('Stream error:', error);
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Stream processing failed', message: error.message });
+    } else {
+      res.write(`data: ${JSON.stringify({
+        type: 'error',
+        message: error.message
+      })}\n\n`);
+      res.end();
+    }
+  }
+});
+
 // 对话历史管理API
 app.get('/chat/history/:sessionId', async (req, res) => {
   try {
@@ -221,6 +277,104 @@ app.get('/context/stats', async (req, res) => {
   } catch (error) {
     console.error('Error getting context stats:', error);
     res.status(500).json({ error: 'Failed to get context stats', message: error.message });
+  }
+});
+
+// 工具调用监控统计API
+app.get('/tools/monitor/stats', async (req, res) => {
+  try {
+    const llmService = require('./llmService');
+    
+    if (llmService && llmService.monitorService) {
+      const monitorStats = llmService.monitorService.getStats();
+      res.status(200).json({
+        monitorStats,
+        timestamp: new Date().toISOString(),
+        status: 'active'
+      });
+    } else {
+      res.status(503).json({ 
+        error: 'Monitor service not available',
+        status: 'inactive'
+      });
+    }
+  } catch (error) {
+    console.error('Error getting monitor stats:', error);
+    res.status(500).json({ error: 'Failed to get monitor stats', message: error.message });
+  }
+});
+
+// 工具调用模式分析API
+app.get('/tools/monitor/analysis', async (req, res) => {
+  try {
+    const llmService = require('./llmService');
+    const { sessionId, timeRange } = req.query;
+    
+    if (llmService && llmService.monitorService) {
+      const timeRangeMs = timeRange ? parseInt(timeRange) * 60 * 1000 : 60 * 60 * 1000; // 默认1小时
+      const analysis = llmService.monitorService.analyzeCallPatterns(sessionId, timeRangeMs);
+      res.status(200).json({
+        analysis,
+        timestamp: new Date().toISOString(),
+        status: 'active'
+      });
+    } else {
+      res.status(503).json({ 
+        error: 'Monitor service not available',
+        status: 'inactive'
+      });
+    }
+  } catch (error) {
+    console.error('Error getting tool analysis:', error);
+    res.status(500).json({ error: 'Failed to get tool analysis', message: error.message });
+  }
+});
+
+// 异常检测API
+app.get('/tools/monitor/anomalies', async (req, res) => {
+  try {
+    const llmService = require('./llmService');
+    
+    if (llmService && llmService.monitorService) {
+      const anomalies = llmService.monitorService.detectAnomalies();
+      res.status(200).json({
+        anomalies,
+        timestamp: new Date().toISOString(),
+        status: 'active'
+      });
+    } else {
+      res.status(503).json({ 
+        error: 'Monitor service not available',
+        status: 'inactive'
+      });
+    }
+  } catch (error) {
+    console.error('Error detecting anomalies:', error);
+    res.status(500).json({ error: 'Failed to detect anomalies', message: error.message });
+  }
+});
+
+// 策略建议API
+app.get('/tools/monitor/recommendations', async (req, res) => {
+  try {
+    const llmService = require('./llmService');
+    
+    if (llmService && llmService.monitorService) {
+      const recommendations = llmService.monitorService.generateStrategyRecommendations();
+      res.status(200).json({
+        recommendations,
+        timestamp: new Date().toISOString(),
+        status: 'active'
+      });
+    } else {
+      res.status(503).json({ 
+        error: 'Monitor service not available',
+        status: 'inactive'
+      });
+    }
+  } catch (error) {
+    console.error('Error generating recommendations:', error);
+    res.status(500).json({ error: 'Failed to generate recommendations', message: error.message });
   }
 });
 

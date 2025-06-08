@@ -494,7 +494,7 @@ AI完整回复：${aiResponse}
 如果AI回复提到"AI候选人BFF系统"项目（包含GitHub链接），应该优先生成：
 - "能分析一下AI候选人BFF系统的Github库里的内容吗？"
 - "MCP协议有什么优势？"
-- "系统架构是怎样的？"
+- "系统架构是怎样的？"  
 
 如果AI回复提到"Browser CoT"项目，应该生成：
 - "能分析一下Browser CoT的Github库里的内容吗？"
@@ -722,6 +722,265 @@ ${contextInfo.relevantProjects && contextInfo.relevantProjects.length > 0 ?
       }
       
       throw error;
+    }
+  }
+
+  // 流式处理查询 - SSE版本
+  async processQueryStream(userMessage, sessionId = 'default', res) {
+    if (!this.agent) {
+      await new Promise(resolve => {
+        const checkAgent = () => {
+          if (this.agent) resolve();
+          else setTimeout(checkAgent, 100);
+        };
+        checkAgent();
+      });
+    }
+
+    try {
+      // 🧠 增强上下文感知：检查是否有GitHub分析上下文
+      const contextInfo = await this.contextService.enhanceWithGitHubContext(userMessage, sessionId);
+      
+      // 获取对话历史
+      const chatHistory = await chatHistoryService.getFormattedHistory(sessionId);
+      
+      // 增强系统提示词，包含上下文信息
+      let enhancedSystemPrompt = SYSTEM_PROMPT;
+      if (contextInfo.hasContext) {
+        enhancedSystemPrompt += `\n\n🧠 当前会话上下文：
+${contextInfo.contextSummary || ''}
+
+${contextInfo.relevantProjects && contextInfo.relevantProjects.length > 0 ? 
+  '相关项目上下文：\n' + contextInfo.relevantProjects.map(p => 
+    `- ${p.projectName} (${p.language}): ${p.keyInfo?.type || 'Unknown type'}`
+  ).join('\n') : ''}
+
+📝 重要提示：
+- 你可以基于上述GitHub分析结果回答更深入的技术问题
+- 如果用户询问相关项目的具体实现、架构设计等，直接使用已有的分析数据
+- 鼓励用户深入探讨已分析项目的技术细节`;
+      }
+      
+      // 构建完整的消息数组
+      const messages = [
+        { role: "system", content: enhancedSystemPrompt },
+        ...chatHistory,
+        { role: "user", content: userMessage }
+      ];
+
+      console.log(`💬 Processing stream query with ${chatHistory.length} history messages for session: ${sessionId}`);
+      console.log(`🧠 Context info:`, {
+        hasContext: contextInfo.hasContext,
+        relevantProjects: contextInfo.relevantProjects?.length || 0
+      });
+
+      // 保存用户消息到历史
+      await chatHistoryService.addMessage(sessionId, 'user', userMessage);
+
+      // 🧠 为当前会话创建带有上下文感知和监控的工具
+      const monitoredTools = this._createMonitoredTools(sessionId, userMessage);
+      
+      // 创建临时的会话感知agent
+      const sessionAgent = createReactAgent({
+        llm: this.model,
+        tools: monitoredTools.tools,
+      });
+
+      let fullResponse = '';
+      const queryStartTime = Date.now();
+
+      try {
+        // 发送开始信号
+        res.write(`data: ${JSON.stringify({
+          type: 'start',
+          message: '正在思考中...'
+        })}\n\n`);
+
+        // 使用 streamEvents 进行流式处理
+        const eventStream = sessionAgent.streamEvents({
+          messages: messages,
+        }, {
+          version: "v1",
+          callbacks: [this.langfuseHandler],
+          metadata: {
+            user_query: userMessage,
+            session_id: sessionId,
+            history_length: chatHistory.length,
+            timestamp: new Date().toISOString(),
+            service: "ai-candidate-bff",
+            mode: "streaming-mcp",
+          }
+        });
+
+        for await (const event of eventStream) {
+          // 处理不同类型的事件
+          if (event.event === 'on_llm_stream') {
+            // AI模型的流式输出
+            const chunk = event.data?.chunk;
+            if (chunk && chunk.content) {
+              const token = chunk.content;
+              fullResponse += token;
+              
+              // 发送token到前端
+              res.write(`data: ${JSON.stringify({
+                type: 'token',
+                content: token
+              })}\n\n`);
+            }
+          } else if (event.event === 'on_tool_start') {
+            // 工具调用开始
+            const toolName = event.name;
+            res.write(`data: ${JSON.stringify({
+              type: 'tool_start',
+              tool: toolName,
+              message: `正在调用工具: ${toolName}...`
+            })}\n\n`);
+          } else if (event.event === 'on_tool_end') {
+            // 工具调用结束
+            const toolName = event.name;
+            res.write(`data: ${JSON.stringify({
+              type: 'tool_end',
+              tool: toolName,
+              message: `工具 ${toolName} 调用完成`
+            })}\n\n`);
+          }
+        }
+
+        const queryEndTime = Date.now();
+        const queryDuration = queryEndTime - queryStartTime;
+
+        // 如果没有获取到完整响应，尝试从最终结果中提取
+        if (!fullResponse.trim()) {
+          console.warn("⚠️ No streaming content received, falling back to invoke method");
+          
+          const result = await sessionAgent.invoke({
+            messages: messages,
+          }, {
+            callbacks: [this.langfuseHandler],
+            metadata: {
+              user_query: userMessage,
+              session_id: sessionId,
+              fallback: true,
+              timestamp: new Date().toISOString(),
+            },
+          });
+
+          // 从结果中提取文本
+          if (result && Array.isArray(result.messages)) {
+            const lastAI = [...result.messages].reverse().find(
+              msg => msg.constructor.name === "AIMessage" && msg.content
+            );
+            if (lastAI && lastAI.content) {
+              fullResponse = lastAI.content;
+              
+              // 模拟流式输出，快速发送每个字符
+              for (let i = 0; i < fullResponse.length; i++) {
+                res.write(`data: ${JSON.stringify({
+                  type: 'token',
+                  content: fullResponse[i]
+                })}\n\n`);
+                
+                // 小延迟以产生打字效果
+                await new Promise(resolve => setTimeout(resolve, 10));
+              }
+            }
+          }
+        }
+
+        // 发送完成信号
+        res.write(`data: ${JSON.stringify({
+          type: 'completed',
+          fullText: fullResponse,
+          duration: queryDuration
+        })}\n\n`);
+
+        // 保存AI回复到历史
+        if (fullResponse.trim()) {
+          await chatHistoryService.addMessage(sessionId, 'assistant', fullResponse);
+        }
+
+        // 🧠 生成基于上下文的对话建议
+        console.log("🎯 Generating context-aware conversation suggestions...");
+        let suggestions;
+        
+        // 如果有GitHub分析上下文，优先生成上下文相关建议
+        if (contextInfo.hasContext && contextInfo.relevantProjects && contextInfo.relevantProjects.length > 0) {
+          const contextualSuggestions = this.contextService.generateContextualSuggestions(
+            contextInfo.relevantProjects[0].analysisResult
+          );
+          suggestions = { suggestions: contextualSuggestions };
+          console.log("🧠 Generated contextual suggestions based on GitHub analysis");
+        } else {
+          // 使用传统方法生成建议
+          suggestions = await this.generateSuggestions(
+            chatHistory,
+            fullResponse,
+            userMessage
+          );
+        }
+
+        // 发送建议
+        res.write(`data: ${JSON.stringify({
+          type: 'suggestions',
+          suggestions: suggestions.suggestions || []
+        })}\n\n`);
+        
+        // 🔍 记录工具调用监控信息
+        this.monitorService.recordToolCall(
+          sessionId,
+          userMessage,
+          monitoredTools.toolsCalled,
+          queryDuration,
+          {
+            hasContext: contextInfo.hasContext,
+            relevantProjects: contextInfo.relevantProjects?.length || 0,
+            historyLength: chatHistory.length,
+            streaming: true
+          }
+        );
+
+        console.log(`✅ Stream completed for session ${sessionId}, duration: ${queryDuration}ms`);
+
+      } catch (streamError) {
+        console.error("Stream processing error:", streamError);
+        
+        res.write(`data: ${JSON.stringify({
+          type: 'error',
+          message: `流式处理错误: ${streamError.message}`,
+          canRetry: true
+        })}\n\n`);
+        
+        // 记录错误到 LangFuse
+        if (this.langfuseHandler) {
+          this.langfuseHandler.handleLLMError(streamError, {
+            user_query: userMessage,
+            session_id: sessionId,
+            error_type: streamError.constructor.name,
+            streaming: true,
+            timestamp: new Date().toISOString(),
+          });
+        }
+      }
+
+    } catch (error) {
+      console.error("Error in stream LLM processing:", error);
+      
+      res.write(`data: ${JSON.stringify({
+        type: 'error',
+        message: `处理错误: ${error.message}`,
+        canRetry: true
+      })}\n\n`);
+      
+      // 记录错误到 LangFuse
+      if (this.langfuseHandler) {
+        this.langfuseHandler.handleLLMError(error, {
+          user_query: userMessage,
+          session_id: sessionId,
+          error_type: error.constructor.name,
+          streaming: true,
+          timestamp: new Date().toISOString(),
+        });
+      }
     }
   }
 }
