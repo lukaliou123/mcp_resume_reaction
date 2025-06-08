@@ -1,0 +1,84 @@
+{
+  "data": {
+    "url": "https://github.com/lukaliou123/mcp_resume_reaction",
+    "timestamp": "2025-06-08T14:03:06.876Z",
+    "repository_info": {
+      "name": "mcp_resume_reaction",
+      "full_name": "lukaliou123/mcp_resume_reaction",
+      "description": null,
+      "language": "JavaScript",
+      "languages_url": "https://api.github.com/repos/lukaliou123/mcp_resume_reaction/languages",
+      "size": 368,
+      "stargazers_count": 0,
+      "forks_count": 0,
+      "created_at": "2025-05-23T08:49:29Z",
+      "updated_at": "2025-06-06T16:32:10Z",
+      "topics": [],
+      "default_branch": "master",
+      "html_url": "https://github.com/lukaliou123/mcp_resume_reaction"
+    },
+    "tech_stack": {
+      "primary_language": "JavaScript",
+      "frontend_stack": [],
+      "backend_stack": [],
+      "build_tools": [],
+      "is_fullstack": false,
+      "complexity_score": "Moderate"
+    },
+    "languages": {
+      "languages": [
+        {
+          "language": "JavaScript",
+          "bytes": 208384,
+          "percentage": "83.53"
+        },
+        {
+          "language": "HTML",
+          "bytes": 33363,
+          "percentage": "13.37"
+        },
+        {
+          "language": "Shell",
+          "bytes": 7069,
+          "percentage": "2.83"
+        },
+        {
+          "language": "Dockerfile",
+          "bytes": 656,
+          "percentage": "0.26"
+        }
+      ],
+      "total_bytes": 249472,
+      "primary_language": "JavaScript"
+    },
+    "frameworks": [],
+    "build_tools": [],
+    "config_files": [
+      {
+        "name": "README.md",
+        "path": "README.md",
+        "type": "file",
+        "size": 11778,
+        "download_url": "https://raw.githubusercontent.com/lukaliou123/mcp_resume_reaction/master/README.md"
+      }
+    ],
+    "readme": {
+      "content": "# AI候选人智能助手 - 技术文档\n\n## 📋 项目概述\n\n本项目是一个基于AI的候选人信息交互系统，提供PC Web界面让用户通过自然语言与AI助手对话，获取候选人的详细信息。系统集成了先进的GitHub项目分析功能、智能上下文感知和实时监控能力。\n\n## 🚀 核心功能\n\n### 💬 智能对话交互\n- 自然语言理解用户问题\n- 智能调用相应工具获取信息\n- 生成友好的对话式回复\n- 支持多轮对话和上下文记忆\n\n### 🔍 GitHub深度分析\n- **智能项目分析**: 深度分析GitHub仓库架构、技术栈、代码质量\n- **智能URL处理**: 自动识别用户主页和仓库URL，提供相应分析\n- **技术栈识别**: 自动检测编程语言、框架、构建工具\n- **项目评估**: 生成复杂度评分和改进建议\n- **缓存优化**: 智能缓存分析结果，提升查询性能\n\n### 🧠 智能上下文感知\n- **会话记忆**: 记住之前分析的GitHub项目\n- **智能建议**: 基于上下文自动生成相关问题\n- **项目关联**: 将用户问题与已分析项目智能关联\n\n### 📊 实时监控与分析\n- **LangFuse集成**: 全面的API调用追踪和性能监控\n- **工具调用监控**: 智能分析工具使用模式\n- **异常检测**: 自动识别异常调用行为\n- **策略建议**: 基于使用数据提供优化建议\n\n## 🏗️ 系统架构\n\n```\n┌─────────────────┐    ┌─────────────────────┐    ┌──────────────────┐\n│   PC Web UI     │───▶│  AI-Candidate-BFF   │───▶│   LLM Service    │\n│ (Vue/React/JS)  │    │   (Express.js)      │    │ (OpenAI/Qwen)    │\n└─────────────────┘    └─────────────────────┘    └──────────────────┘\n                                │                           │\n                                ▼                           ▼\n                       ┌─────────────────┐         ┌──────────────────┐\n                       │ 集成MCP服务器    │         │   LangChain.js   │\n                       │ (Process-内)    │         │  (Agent, Tools)  │\n                       └─────────────────┘         └──────────────────┘\n                                │                           │\n                                ▼                           ▼\n                    ┌─────────────────────────┐    ┌──────────────────┐\n                    │     GitHub API          │    │   LangFuse       │\n                    │   + 缓存服务             │    │    监控服务       │\n                    └─────────────────────────┘    └──────────────────┘\n```\n\n### 架构特点\n- **🎯 集成模式**: MCP服务器完全集成，无子进程开销\n- **⚡ 高性能**: 进程内通信，零序列化开销\n- **🔧 易部署**: 单一应用，支持多种云平台\n- **📊 可监控**: 全链路追踪和性能分析\n\n## 🛠️ 技术栈\n\n### 后端核心\n- **应用框架**: Express.js 5.1.0\n- **AI/LLM**: \n  - OpenAI GPT (gpt-4o-mini)\n  - 阿里云通义千问 (qwen-turbo-latest)\n- **AI框架**: LangChain.js + LangGraph\n- **MCP协议**: @modelcontextprotocol/sdk (完全集成)\n\n### 集成服务\n- **GitHub分析**: @octokit/rest + 智能缓存\n- **监控服务**: LangFuse (langfuse-langchain)\n- **邮件服务**: Nodemailer + Mailgun\n- **数据校验**: Zod\n\n### 部署支持\n- **云平台**: Vercel, Railway, Docker\n- **进程管理**: PM2\n- **环境管理**: dotenv\n\n## 📁 项目结构\n\n```\nai-candidate-bff/\n├── index.js                    # 🚀 主应用入口\n├── llmService.js              # 🧠 LLM服务 (集成MCP工具)\n├── src/\n│   ├── mcp-server/            # 📦 集成MCP服务器源码\n│   │   ├── server.js          # 核心MCP服务逻辑\n│   │   ├── config.js          # MCP配置管理\n│   │   ├── resources/         # 候选人资源定义\n│   │   ├── tools/             # 候选人工具定义\n│   │   └── prompts/           # 智能提示模板\n│   └── services/              # 🔧 核心服务层\n│       ├── mcpService.js      # MCP服务封装\n│       ├── githubMCPService.js # GitHub分析服务\n│       ├── chatHistoryService.js # 会话历史管理\n│       ├── conversationContextService.js # 上下文感知\n│       ├── toolCallMonitorService.js # 工具调用监控\n│       └── githubCacheService.js # GitHub缓存服务\n├── config/                    # ⚙️ 配置文件\n│   ├── candidate.js           # 候选人基本信息\n│   ├── resume-content.js      # 详细简历内容\n│   └── server.js              # 服务器配置\n├── public/                    # 🌐 静态前端文件\n├── cache/                     # 💾 GitHub分析缓存\n└── scripts/                   # 📜 部署和测试脚本\n```\n\n## 🔧 核心功能详解\n\n### 1. 智能对话API\n**端点**: `POST /chat`\n\n**特性**:\n- 🧠 智能意图理解\n- 🔄 多轮对话支持  \n- 💡 智能建议生成\n- 📝 会话历史管理\n- 🎯 上下文感知回复\n\n**请求格式**:\n```json\n{\n  \"message\": \"能分析一下AI候选人BFF系统的Github库里的内容吗？\",\n  \"sessionId\": \"session_123\"\n}\n```\n\n**响应格式**:\n```json\n{\n  \"text\": \"AI助手的详细回复...\",\n  \"suggestions\": [\n    \"这个项目的架构设计如何？\",\n    \"使用了哪些核心技术？\",\n    \"项目的代码质量怎么样？\"\n  ],\n  \"sessionId\": \"session_123\",\n  \"timestamp\": \"2024-01-01T12:00:00.000Z\"\n}\n```\n\n### 2. GitHub深度分析\n\n**支持的GitHub工具**:\n- `mcp__github__handle_url`: 🎯 智能URL处理 (用户主页/仓库自动识别)\n- `mcp__github__analyze_repository`: 🔍 深度仓库分析\n- `mcp__github__get_repository_info`: 📊 基本仓库信息\n- `mcp__github__get_file_content`: 📄 文件内容获取\n- `mcp__github__get_user_repositories`: 📋 用户仓库列表\n\n**分析维度**:\n- **技术栈识别**: 编程语言、框架、构建工具\n- **项目评估**: 复杂度评分、开发状态\n- **架构分析**: 目录结构、设计模式\n- **代码质量**: 最佳实践、改进建议\n\n### 3. 智能监控系统\n\n**LangFuse监控**: `GET /monitoring`\n- 📈 API调用统计\n- 🪙 Token使用追踪  \n- ❌ 错误日志记录\n- ⚡ 性能指标分析\n\n**工具调用监控**: `GET /tools/monitor/stats`\n- 🔧 工具使用模式分析\n- 🚨 异常调用检测\n- 💡 策略优化建议\n- 📊 实时统计数据\n\n## 🚦 API端点总览\n\n### 核心服务\n- `GET /` - 🏠 前端界面\n- `GET /health` - ❤️ 健康检查  \n- `POST /chat` - 💬 智能对话\n- `POST /mcp` - 🔌 MCP协议端点\n\n### 监控管理\n- `GET /monitoring` - 📊 LangFuse监控状态\n- `GET /tools/monitor/stats` - 🔧 工具调用统计\n- `GET /tools/monitor/analysis` - 📈 调用模式分析\n- `GET /tools/monitor/anomalies` - 🚨 异常检测\n- `GET /tools/monitor/recommendations` - 💡 策略建议\n\n### 数据管理\n- `GET /chat/history/:sessionId` - 📝 会话历史\n- `DELETE /chat/history/:sessionId` - 🗑️ 清除历史\n- `GET /chat/stats` - 📊 对话统计\n- `GET /github/cache/stats` - 💾 GitHub缓存统计\n- `GET /context/stats` - 🧠 上下文统计\n\n### 测试端点\n- `GET /test-mcp/resume-text` - 📄 简历文本测试\n- `GET /test-mcp/github-url` - 🐙 GitHub链接测试\n- `GET /test-mcp/linkedin-url` - 💼 LinkedIn链接测试\n\n## ⚙️ 环境配置\n\n### 必需配置\n```bash\n# AI服务配置\nAI_PROVIDER_AREA=global              # global/cn (选择AI提供商区域)\nOPENAI_API_KEY=your_openai_key       # OpenAI API密钥\nOPENAI_MODEL=gpt-4o-mini             # OpenAI模型\n\n# 阿里云通义千问 (AI_PROVIDER_AREA=cn时使用)\nDASHSCOPE_API_KEY=your_dashscope_key\nDASHSCOPE_MODEL=qwen-turbo-latest\n```\n\n### 可选配置  \n```bash\n# LangFuse监控\nLANGFUSE_PUBLIC_KEY=pk-lf-xxx\nLANGFUSE_SECRET_KEY=sk-lf-xxx  \nLANGFUSE_BASE_URL=https://cloud.langfuse.com\n\n# GitHub分析功能\nFEATURE_GITHUB_ANALYSIS_ENABLED=true\nGITHUB_PERSONAL_ACCESS_TOKEN=github_pat_xxx\n\n# 应用配置\nNODE_ENV=production\nPORT=3000\nCHAT_HISTORY_MAX_MESSAGES=20\nCHAT_HISTORY_SESSION_TIMEOUT=3600000\n```\n\n## 🚀 快速开始\n\n### 本地开发\n```bash\n# 1. 克隆项目\ngit clone <repository-url>\ncd ai-candidate-bff\n\n# 2. 安装依赖\nnpm install\n\n# 3. 配置环境变量\ncp .env.production .env\n# 编辑.env文件，设置必需的API密钥\n\n# 4. 启动开发服务器\nnpm run dev\n\n# 5. 访问应用\nopen http://localhost:3000\n```\n\n### 生产部署\n\n**Vercel部署** (推荐):\n```bash\n# 1. 安装Vercel CLI\nnpm i -g vercel\n\n# 2. 部署到Vercel\nvercel --prod\n\n# 3. 配置环境变量\nvercel env add OPENAI_API_KEY\nvercel env add LANGFUSE_PUBLIC_KEY\nvercel env add LANGFUSE_SECRET_KEY\n```\n\n**Docker部署**:\n```bash\n# 1. 构建镜像\ndocker build -t ai-candidate-bff .\n\n# 2. 运行容器\ndocker run -p 3000:3000 \\\n  -e OPENAI_API_KEY=your_key \\\n  -e LANGFUSE_PUBLIC_KEY=your_key \\\n  ai-candidate-bff\n```\n\n## 📊 使用示例\n\n### 基本对话\n```bash\ncurl -X POST http://localhost:3000/chat \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\n    \"message\": \"介绍一下候选人的技术能力\",\n    \"sessionId\": \"demo_session\"\n  }'\n```\n\n### GitHub项目分析\n```bash\ncurl -X POST http://localhost:3000/chat \\\n  -H \"Content-Type: application/json\" \\\n  -d '{\n    \"message\": \"分析一下这个GitHub项目：https://github.com/user/repo\",\n    \"sessionId\": \"demo_session\"\n  }'\n```\n\n### 监控数据查看\n```bash\n# 查看LangFuse监控状态\ncurl http://localhost:3000/monitoring\n\n# 查看工具调用统计\ncurl http://localhost:3000/tools/monitor/stats\n\n# 查看异常检测结果\ncurl http://localhost:3000/tools/monitor/anomalies\n```\n\n## 🎯 项目优势\n\n### 🏗️ 架构优势\n- **🎯 集成模式**: 无子进程开销，单一应用部署\n- **⚡ 高性能**: 进程内通信，零延迟调用\n- **🔧 易维护**: 统一代码库，简化架构\n- **📦 易部署**: 支持多种云平台，容器化友好\n\n### 🤖 AI能力\n- **🧠 智能理解**: 精准识别用户意图\n- **🔄 上下文感知**: 多轮对话记忆能力\n- **💡 智能建议**: 基于上下文生成相关问题\n- **🎯 工具选择**: 智能选择最适合的工具\n\n### 📊 监控能力\n- **🔍 全链路追踪**: LangFuse完整监控\n- **📈 性能分析**: 实时性能指标\n- **🚨 异常检测**: 自动识别异常模式\n- **💡 智能建议**: 基于数据的优化建议\n\n### 🔧 扩展性\n- **🔌 模块化设计**: 松耦合的服务架构\n- **🛠️ 易于扩展**: 新功能快速集成\n- **⚙️ 配置灵活**: 运行时配置切换\n- **🌐 多提供商**: 支持多种AI服务商\n\n## 🤝 贡献指南\n\n### 开发流程\n1. Fork项目并创建功能分支\n2. 编写代码并添加测试\n3. 确保所有测试通过\n4. 提交Pull Request\n\n### 代码规范\n- 使用ESLint和Prettier保证代码质量\n- 遵循语义化提交信息规范\n- 为新功能编写相应文档\n\n---\n\n**🎉 项目特色**: 这是一个集成了最新AI技术、GitHub深度分析、智能监控的现代化候选人信息系统，采用先进的集成架构，为HR和技术面试官提供强大的AI助手能力！ ",
+      "size": 11778
+    },
+    "analysis_summary": {
+      "project_type": "Library/Tool",
+      "development_status": "Active Development",
+      "key_highlights": [
+        "Multi-language project showcasing versatility"
+      ],
+      "recommendations": [
+        "Consider adding automated build tools for better development workflow"
+      ]
+    }
+  },
+  "expiresAt": 1749996186876,
+  "type": "analysis_result",
+  "identifier": "https://github.com/lukaliou123/mcp_resume_reaction",
+  "createdAt": 1749391386876
+}

@@ -131,6 +131,7 @@ class LLMService {
       openAIApiKey: aiConfig.apiKey,
       modelName: aiConfig.model,
       temperature: 0.2,
+      streaming: true, // 🔧 启用流式处理
       configuration: {
         baseURL: aiConfig.baseUrl,
       },
@@ -422,7 +423,7 @@ class LLMService {
   }
 
   // 创建带监控的工具
-  _createMonitoredTools(sessionId, userQuery) {
+  _createMonitoredTools(sessionId, userQuery, res = null) {
     const toolsCalled = [];
     const baseTools = this._createIntegratedMCPTools(sessionId);
     
@@ -437,15 +438,44 @@ class LLMService {
           console.log(`🔧 [Monitor] Tool Called: ${tool.name}`);
           toolsCalled.push(tool.name);
           
+          // 🔧 如果有SSE响应对象，发送工具开始信号
+          if (res) {
+            res.write(`data: ${JSON.stringify({
+              type: 'tool_start',
+              tool: tool.name,
+              message: `正在调用工具: ${tool.name}...`
+            })}\n\n`);
+          }
+          
           const toolStartTime = Date.now();
           try {
             const result = await originalFunc(...args);
             const toolEndTime = Date.now();
             console.log(`⏱️ [Monitor] Tool ${tool.name} completed in ${toolEndTime - toolStartTime}ms`);
+            
+            // 🔧 如果有SSE响应对象，发送工具完成信号
+            if (res) {
+              res.write(`data: ${JSON.stringify({
+                type: 'tool_end',
+                tool: tool.name,
+                message: `工具 ${tool.name} 调用完成`
+              })}\n\n`);
+            }
+            
             return result;
           } catch (error) {
             const toolEndTime = Date.now();
             console.error(`❌ [Monitor] Tool ${tool.name} failed after ${toolEndTime - toolStartTime}ms:`, error.message);
+            
+            // 🔧 如果有SSE响应对象，发送工具错误信号
+            if (res) {
+              res.write(`data: ${JSON.stringify({
+                type: 'tool_error',
+                tool: tool.name,
+                message: `工具 ${tool.name} 调用失败: ${error.message}`
+              })}\n\n`);
+            }
+            
             throw error;
           }
         }
@@ -787,6 +817,7 @@ ${contextInfo.relevantProjects && contextInfo.relevantProjects.length > 0 ?
       });
 
       let fullResponse = '';
+      let tokenCount = 0;
       const queryStartTime = Date.now();
 
       try {
@@ -796,54 +827,78 @@ ${contextInfo.relevantProjects && contextInfo.relevantProjects.length > 0 ?
           message: '正在思考中...'
         })}\n\n`);
 
-        // 使用 streamEvents 进行流式处理
-        const eventStream = sessionAgent.streamEvents({
-          messages: messages,
-        }, {
-          version: "v1",
-          callbacks: [this.langfuseHandler],
-          metadata: {
-            user_query: userMessage,
-            session_id: sessionId,
-            history_length: chatHistory.length,
-            timestamp: new Date().toISOString(),
-            service: "ai-candidate-bff",
-            mode: "streaming-mcp",
+        // 🔄 改用LangChain推荐的callbacks方式进行流式处理
+        let streamingCallbacks = [
+          this.langfuseHandler,
+          {
+                         handleLLMNewToken(token) {
+               fullResponse += token;
+               tokenCount++;
+               // 发送token到前端
+               res.write(`data: ${JSON.stringify({
+                 type: 'token',
+                 content: token
+               })}\n\n`);
+               
+               // 每50个token输出一次进度
+               if (tokenCount % 50 === 0) {
+                 console.log(`🔄 已输出 ${tokenCount} 个token...`);
+               }
+             },
+            // 工具事件现在由监控系统处理，这里不再重复
+                         handleLLMStart(llm, prompts) {
+               console.log("🚀 LLM开始生成回复...");
+             },
+             handleLLMEnd(output) {
+               console.log("✅ LLM回复生成完成");
+             }
           }
-        });
+        ];
 
-        for await (const event of eventStream) {
-          // 处理不同类型的事件
-          if (event.event === 'on_llm_stream') {
-            // AI模型的流式输出
-            const chunk = event.data?.chunk;
-            if (chunk && chunk.content) {
-              const token = chunk.content;
-              fullResponse += token;
-              
-              // 发送token到前端
-              res.write(`data: ${JSON.stringify({
-                type: 'token',
-                content: token
-              })}\n\n`);
+        // 使用agent的stream方法而不是streamEvents
+        try {
+          const streamResult = await sessionAgent.streamLog({
+            messages: messages,
+          }, {
+            callbacks: streamingCallbacks,
+            metadata: {
+              user_query: userMessage,
+              session_id: sessionId,
+              history_length: chatHistory.length,
+              timestamp: new Date().toISOString(),
+              service: "ai-candidate-bff",
+              mode: "streaming-mcp-v2",
             }
-          } else if (event.event === 'on_tool_start') {
-            // 工具调用开始
-            const toolName = event.name;
-            res.write(`data: ${JSON.stringify({
-              type: 'tool_start',
-              tool: toolName,
-              message: `正在调用工具: ${toolName}...`
-            })}\n\n`);
-          } else if (event.event === 'on_tool_end') {
-            // 工具调用结束
-            const toolName = event.name;
-            res.write(`data: ${JSON.stringify({
-              type: 'tool_end',
-              tool: toolName,
-              message: `工具 ${toolName} 调用完成`
-            })}\n\n`);
-          }
+          });
+
+                     // 处理streamLog的结果
+           let chunkCount = 0;
+           for await (const chunk of streamResult) {
+             // streamLog 会通过callbacks处理，这里主要是确保流程完整
+             if (chunk.ops && chunk.ops.length > 0) {
+               chunkCount++;
+               // 每10个chunk输出一次，避免日志过多
+               if (chunkCount % 100 === 0) {
+                 console.log(`📝 已处理 ${chunkCount} 个流式块...`);
+               }
+             }
+           }
+           console.log(`✅ 流式处理完成，共处理 ${chunkCount} 个块`);
+        } catch (streamError) {
+          console.warn("⚠️ streamLog failed, trying direct invoke with streaming model");
+          
+          // 如果streamLog失败，尝试使用带回调的直接调用
+          await sessionAgent.invoke({
+            messages: messages,
+          }, {
+            callbacks: streamingCallbacks,
+            metadata: {
+              user_query: userMessage,
+              session_id: sessionId,
+              fallback: "direct_invoke",
+              timestamp: new Date().toISOString(),
+            },
+          });
         }
 
         const queryEndTime = Date.now();
@@ -897,6 +952,15 @@ ${contextInfo.relevantProjects && contextInfo.relevantProjects.length > 0 ?
         // 保存AI回复到历史
         if (fullResponse.trim()) {
           await chatHistoryService.addMessage(sessionId, 'assistant', fullResponse);
+          
+          // 📋 在日志中显示完整的AI回复
+          console.log("\n" + "=".repeat(60));
+          console.log("🤖 AI完整回复内容:");
+          console.log("=".repeat(60));
+          console.log(fullResponse);
+          console.log("=".repeat(60) + "\n");
+        } else {
+          console.warn("⚠️ 未获取到AI回复内容");
         }
 
         // 🧠 生成基于上下文的对话建议
@@ -939,7 +1003,7 @@ ${contextInfo.relevantProjects && contextInfo.relevantProjects.length > 0 ?
           }
         );
 
-        console.log(`✅ Stream completed for session ${sessionId}, duration: ${queryDuration}ms`);
+        console.log(`✅ 流式处理完成 - Session: ${sessionId}, 耗时: ${queryDuration}ms, Token数: ${tokenCount}, 工具调用: ${monitoredTools.toolsCalled.length}`);
 
       } catch (streamError) {
         console.error("Stream processing error:", streamError);

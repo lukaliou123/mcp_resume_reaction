@@ -1,0 +1,27 @@
+{
+  "data": {
+    "name": "TypeScript",
+    "full_name": "microsoft/TypeScript",
+    "description": "TypeScript is a superset of JavaScript that compiles to clean JavaScript output.",
+    "language": "TypeScript",
+    "languages_url": "https://api.github.com/repos/microsoft/TypeScript/languages",
+    "size": 2900596,
+    "stargazers_count": 104845,
+    "forks_count": 12857,
+    "created_at": "2014-06-17T15:28:39Z",
+    "updated_at": "2025-06-05T14:55:15Z",
+    "topics": [
+      "javascript",
+      "language",
+      "typechecker",
+      "typescript"
+    ],
+    "license": "Apache License 2.0",
+    "default_branch": "main",
+    "html_url": "https://github.com/microsoft/TypeScript"
+  },
+  "expiresAt": 1749222954898,
+  "type": "repository_info",
+  "identifier": "https://github.com/microsoft/TypeScript",
+  "createdAt": 1749136554898
+}
