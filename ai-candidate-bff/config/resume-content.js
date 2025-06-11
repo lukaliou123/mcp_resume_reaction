@@ -53,6 +53,33 @@ module.exports = `{
   ],
   "personal_projects": [
   {
+  "name": "HighGoPress: 高并发实时计数服务",
+  "period": "2024-06 ~ 至今",
+  "url": "https://github.com/your-username/high-go-press",
+  "background": "构建一个支持2万QPS、高可用、可观测的高并发实时计数系统。该项目模拟社交媒体中的点赞、关注、访问量等高频写入场景，从高性能单体架构逐步演进至生产级微服务架构。",
+  "tech_stack": [
+    "Go",
+    "gRPC",
+    "Gin",
+    "Redis",
+    "Kafka",
+    "Consul",
+    "Protocol Buffers",
+    "pprof",
+    "Prometheus",
+    "Docker"
+  ],
+  "details": [
+    "高性能单体架构设计与实现: 搭建了基于Gin、Redis和Worker Pool的高性能单体服务，通过五级渐进式压力测试，在500并发下稳定达到 21k+ QPS，P99延迟低于50ms。",
+    "性能优化实践: 实施了基于sync.Pool的对象复用和动态容量的Goroutine池，显著降低GC压力和内存分配。",
+    "异步架构设计与解耦: 在架构中引入Kafka作为异步消息总线（当前为模拟实现），旨在将核心计数与数据持久化流程解耦，为未来提升API响应速度和系统吞吐能力奠定基础。",
+    "微服务架构演进: (进行中) 主导了从单体到微服务的架构重构，将系统拆分为API Gateway和Counter Service，并使用gRPC进行服务间通信，为系统的水平扩展奠定基础。",
+    "gRPC连接池与负载均衡: 为解决服务间调用效率问题，设计并实现了一个带Keep-Alive、自动重连和Round-Robin负载均衡策略的gRPC连接池，旨在将QPS提升回接近单服务的版本。",
+    "服务治理与发现: (进行中) 正在集成Consul实现服务的自动注册、发现与健康检查机制，以提升系统的动态伸缩能力和可用性。",
+    "科学的性能工程方法: 建立了一套包含5个压力等级（从10并发到500并发）的标准化性能测试流程，确保每次架构优化的效果都能被量化和验证。"
+  ]
+},
+  {
   "name": "AI候选人BFF系统",
   "period": "2025-05 ~ 至今",
   "url": "https://github.com/lukaliou123/mcp_resume_reaction",
