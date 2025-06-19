@@ -55,7 +55,7 @@ module.exports = `{
   {
   "name": "HighGoPress: 高并发实时计数服务",
   "period": "2025-06 ~ 至今",
-  "url": "https://github.com/your-username/high-go-press",
+  "url": "https://github.com/lukaliou123/high_go_press",
   "background": "构建一个支持2万QPS、高可用、可观测的高并发实时计数系统。该项目模拟社交媒体中的点赞、关注、访问量等高频写入场景，从高性能单体架构逐步演进至生产级微服务架构。",
   "tech_stack": [
     "Go",
