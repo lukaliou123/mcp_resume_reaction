@@ -7,6 +7,7 @@ const path = require('path');
 const mcpService = require('./src/services/mcpService');
 const llmService = require('./llmService');
 const chatHistoryService = require('./src/services/chatHistoryService');
+const { getTexts } = require('./config/i18n');
 
 // 初始化Express应用
 const app = express();
@@ -27,6 +28,25 @@ app.get('/health', (req, res) => {
     mcpMode: 'integrated',
     timestamp: new Date().toISOString()
   });
+});
+
+// 国际化文本API
+app.get('/api/i18n', (req, res) => {
+  try {
+    const texts = getTexts();
+    res.status(200).json({
+      status: 'success',
+      data: texts,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Error getting i18n texts:', error);
+    res.status(500).json({ 
+      status: 'error', 
+      message: 'Failed to get internationalization texts',
+      error: error.message 
+    });
+  }
 });
 
 // LangFuse 监控状态端点

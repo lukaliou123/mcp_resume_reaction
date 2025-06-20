@@ -8,7 +8,12 @@ const GitHubMCPService = require('./src/services/githubMCPService');
 const ConversationContextService = require('./src/services/conversationContextService');
 const ToolCallMonitorService = require('./src/services/toolCallMonitorService');
 
-const SYSTEM_PROMPT = `你是一个专业的招聘助手，负责为用户介绍和解答关于候选人"陈嘉旭"的各类信息。你可以调用多种工具获取候选人的简历、教育背景、工作经历、项目经验、技能特长、社交媒体链接等结构化数据。
+const { getTexts } = require('./config/i18n');
+
+// 动态获取系统提示词
+function getSystemPrompt() {
+  const texts = getTexts();
+  return texts.systemPrompt + `你可以调用多种工具获取候选人的简历、教育背景、工作经历、项目经验、技能特长、社交媒体链接等结构化数据。
 你的目标是：
 - 充分理解用户的真实意图，判断需要调用哪些工具获取信息。
 - 优先使用细化的工具获取特定信息，避免调用完整简历工具造成token浪费。
@@ -89,6 +94,7 @@ GitHub项目深度分析：
 3. 基于分析结果，生成详细的项目报告和建议后续问题
 
 请始终以专业、友好、可信赖的语气作答。`;
+}
 
 class LLMService {
   constructor() {
@@ -491,22 +497,63 @@ class LLMService {
   // 生成对话建议的方法
   async generateSuggestions(conversationContext, aiResponse, userMessage) {
     try {
-      const suggestionPrompt = `
-基于以下对话信息，生成2-3个相关的后续问题建议：
+      // 获取当前语言的文本配置
+      const texts = getTexts();
+      
+      // 根据语言构建不同的提示词
+      const suggestionPrompt = texts.suggestionPrompt + `
 
-用户问题：${userMessage}
-AI完整回复：${aiResponse}
-对话上下文：${JSON.stringify(conversationContext.slice(-2))}
+${texts.title.includes('Assistant') ? 'User Question' : '用户问题'}：${userMessage}
+${texts.title.includes('Assistant') ? 'AI Complete Reply' : 'AI完整回复'}：${aiResponse}
+${texts.title.includes('Assistant') ? 'Conversation Context' : '对话上下文'}：${JSON.stringify(conversationContext.slice(-2))}
 
-核心要求：
+${texts.title.includes('Assistant') ? 
+`Core Requirements:
+1. Carefully analyze the specific content mentioned in the AI reply (project names, tech stacks, company names, specific experiences, etc.)
+2. Generate targeted in-depth questions based on these specific entities to guide users to explore details
+3. Avoid generating broad generic questions, focus on specific content
+4. Keep questions under 15 words, natural and conversational
+5. Priority: GitHub code analysis > specific project details > technical implementation details > work experience > general questions
+6. Avoid repeating already discussed questions` :
+`核心要求：
 1. 仔细分析AI回复中提到的具体内容（项目名称、技术栈、公司名、具体经历等）
 2. 基于这些具体实体生成针对性的深入问题，引导用户探索细节
 3. 避免生成宽泛的通用问题，要针对具体内容提问
 4. 问题长度控制在15字以内，自然口语化
 5. 优先级：GitHub代码分析 > 具体项目详情 > 技术实现细节 > 工作经历 > 通用问题
-6. 避免重复已讨论的问题
+6. 避免重复已讨论的问题`}
 
-🔗 GitHub分析优先策略：
+${texts.title.includes('Assistant') ? 
+`🔗 GitHub Analysis Priority Strategy:
+- **Highest Priority**: If AI reply contains GitHub links or project names, must prioritize generating GitHub analysis questions
+- Format: "Can you analyze the content in [project name] GitHub repository?"
+- Example: If mentioning "AI Candidate BFF System" project, should generate "Can you analyze the content in AI Candidate BFF System GitHub repository?"
+
+Generation Strategy:
+- If specific project names with GitHub links are mentioned, prioritize GitHub code analysis questions
+- If tech stacks are mentioned, ask about specific use cases, optimization experiences, etc.
+- If work experience is mentioned, ask about specific responsibilities, team size, business outcomes, etc.
+- If educational background is mentioned, ask about courses, practical projects, etc.
+
+Return JSON format:
+{"suggestions": ["Question 1", "Question 2", "Question 3"]}
+
+Example Analysis:
+If AI reply mentions "AI Candidate BFF System" project (with GitHub link), should prioritize generating:
+- "Can you analyze the AI Candidate BFF System GitHub repository?"
+- "What are the advantages of MCP protocol?"
+- "How is the system architecture designed?"
+
+If AI reply mentions "Browser CoT" project, should generate:
+- "Can you analyze the Browser CoT GitHub repository?"
+- "How is chain of thought recording implemented?"
+
+If AI reply mentions "Travel Assistant AI Agent" project, should generate:
+- "Can you analyze the Travel Assistant GitHub repository?"
+- "How is RAG + ReAct architecture designed?"
+
+Rather than generating generic questions like "What challenges were encountered?" or "What tech stack was used?"` :
+`🔗 GitHub分析优先策略：
 - **最高优先级**：如果AI回复中包含GitHub链接或项目名称，必须优先生成GitHub分析问题
 - 格式："能分析一下[项目名称]的Github库里的内容吗？"
 - 示例：如果提到"AI候选人BFF系统"项目，应生成"能分析一下AI候选人BFF系统的Github库里的内容吗？"
@@ -534,11 +581,16 @@ AI完整回复：${aiResponse}
 - "能分析一下旅游助手智能体的Github库里的内容吗？"
 - "RAG + ReAct架构如何设计？"
 
-而不是生成通用问题如"遇到什么挑战？"、"技术栈是什么？"
+而不是生成通用问题如"遇到什么挑战？"、"技术栈是什么？"`}
 `;
 
+      // 根据语言设置系统消息
+      const systemMessage = texts.title.includes('Assistant') ? 
+        "You are a professional HR assistant skilled at generating valuable interview questions. Please strictly return results in JSON format." :
+        "你是一个专业的HR助手，擅长生成有价值的面试问题。请严格按照JSON格式返回结果。";
+      
       const result = await this.model.invoke([
-        { role: "system", content: "你是一个专业的HR助手，擅长生成有价值的面试问题。请严格按照JSON格式返回结果。" },
+        { role: "system", content: systemMessage },
         { role: "user", content: suggestionPrompt }
       ], {
         callbacks: [this.langfuseHandler],
@@ -592,13 +644,20 @@ AI完整回复：${aiResponse}
         });
       }
       
-      // 返回默认建议
-      return { 
-        suggestions: [
+      // 返回默认建议（根据语言）
+      const defaultSuggestions = texts.title.includes('Assistant') ? 
+        [
+          "Can you tell me more?",
+          "Are there any others?",
+          "What's the tech stack?"
+        ] : [
           "能详细说说吗？",
           "还有其他的吗？",
           "技术栈是什么？"
-        ]
+        ];
+      
+      return { 
+        suggestions: defaultSuggestions
       };
     }
   }
@@ -622,7 +681,7 @@ AI完整回复：${aiResponse}
       const chatHistory = await chatHistoryService.getFormattedHistory(sessionId);
       
       // 增强系统提示词，包含上下文信息
-      let enhancedSystemPrompt = SYSTEM_PROMPT;
+      let enhancedSystemPrompt = getSystemPrompt();
       if (contextInfo.hasContext) {
         enhancedSystemPrompt += `\n\n🧠 当前会话上下文：
 ${contextInfo.contextSummary || ''}
@@ -775,7 +834,7 @@ ${contextInfo.relevantProjects && contextInfo.relevantProjects.length > 0 ?
       const chatHistory = await chatHistoryService.getFormattedHistory(sessionId);
       
       // 增强系统提示词，包含上下文信息
-      let enhancedSystemPrompt = SYSTEM_PROMPT;
+      let enhancedSystemPrompt = getSystemPrompt();
       if (contextInfo.hasContext) {
         enhancedSystemPrompt += `\n\n🧠 当前会话上下文：
 ${contextInfo.contextSummary || ''}
